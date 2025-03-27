@@ -35,3 +35,10 @@ class MQTT_client:
         except KeyboardInterrupt:
             print("Interrupted")
             self.client.disconnect()
+
+
+    def publish(self, topic, message):
+        self.client.publish(topic, message)
+
+    def subscribe(self, topic):
+        self.client.subscribe(topic)
