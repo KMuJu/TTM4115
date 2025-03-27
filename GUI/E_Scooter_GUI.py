@@ -89,6 +89,7 @@ class EScooterAppComponent:
         # Buttons for actions
         self.app.startLabelFrame("Actions")
         self.app.addButton("Reserve Selected Scooter", self.reserve_scooter)
+        self.app.addButton("Scan QR Code", None) # needs to be implemented
         self.app.addButton("Unlock Scooter", self.unlock_scooter)
         self.app.addButton("End Ride", self.end_ride)
         self.app.setButtonState("Unlock Scooter", "disabled")
