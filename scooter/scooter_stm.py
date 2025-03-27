@@ -1,7 +1,7 @@
 from threading import Thread
 from stmpy import Machine
 from mqtt_client import MQTT_client
-from lights import RedLightThread, red_light, sense
+from lights import RedLightThread, sense
 
 
 class Scooter_stm:
