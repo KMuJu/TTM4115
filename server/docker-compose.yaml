@@ -1,0 +1,27 @@
+services:
+  backend:
+    container_name: backend
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    networks:
+      - backend_bridge
+    restart: always
+
+  mqtt-broker:
+    container_name: mqtt-broker
+    image: eclipse-mosquitto:latest
+    networks:
+      - backend_bridge
+    ports:
+      - "1883:1883" # MQTT port
+#      - "9001:9001" # WebSocket port (optional)
+    volumes:
+      - ./mqtt/config:/mosquitto/config
+      - ./mqtt/data:/mosquitto/data
+      - ./mqtt/log:/mosquitto/log
+    restart: always
+
+networks:
+  backend_bridge:
+    driver: bridge
