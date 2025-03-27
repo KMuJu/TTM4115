@@ -10,7 +10,7 @@ class Scooter_stm:
         self.client : MQTT_client
         self.serial_number = serial_number
         self.battery_level = 100
-        self.red_light_thread = RedLightThread(red_light)
+        self.red_light_thread = RedLightThread()
         self.light = ""
 
     def set_client(self, client): self.client = client
