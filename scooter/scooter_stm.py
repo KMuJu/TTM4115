@@ -91,8 +91,8 @@ battery_low_mobile = {
         "target" : "active_but_static"
         }
 
-speeding = {
-        "trigger": "speeding",
+driving = {
+        "trigger": "driving",
         "source" : "active_but_static",
         "target" : "active_but_mobile"
         }
@@ -112,7 +112,7 @@ cancel = {
         }
 
 static_timeout = {
-        "trigger": "t",
+        "trigger": "t_s",
         "source" : "active_but_static",
         "target" : "idle",
         "effect" : "static_timeout"
@@ -132,7 +132,7 @@ reserved_t = {
         }
 
 reserved_timeout = {
-        "trigger": "t",
+        "trigger": "t_r",
         "source" : "reserved",
         "target" : "idle",
         "effect" : "reserved_timeout"
@@ -149,7 +149,7 @@ transitions = [
         init,
         battery_low_static,
         battery_low_mobile,
-        speeding,
+        driving,
         standing_still,
         cancel,
         static_timeout,
@@ -166,12 +166,12 @@ idle = {
 
 reserved = {
         "name": "reserved",
-        "entry": "start_timer('t', 6000);reserved_entry",
+        "entry": "start_timer('t_r', 6000);reserved_entry",
         }
 
 active_but_static = {
         "name": "active_but_static",
-        "entry": "start_timer('t', 3000);active_but_static_entry",
+        "entry": "start_timer('t_s', 3000);active_but_static_entry",
         }
 
 active_but_mobile = {
