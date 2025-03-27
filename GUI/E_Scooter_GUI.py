@@ -8,8 +8,8 @@ import time
 # MQTT Configuration
 MQTT_BROKER = 'mqtt.item.ntnu.no'
 MQTT_PORT = 1883
-MQTT_TOPIC_APP_TO_SERVER = 'ttm4115/team_19/app_to_server'
-MQTT_TOPIC_SERVER_TO_APP = 'ttm4115/team_19/server_to_app'
+MQTT_TOPIC_COMMANDS = 'commands'  # Topic for sending commands to the server
+MQTT_TOPIC_AVAILABLE_SCOOTERS = 'available_scooters/'  # Topic for receiving available scooters
 
 # Application States
 DEFAULT_VIEW = "Default View"
@@ -19,7 +19,7 @@ ACTIVE_SCOOTER = "Active Scooter"
 WAITING_FOR_QR_CODE = "Waiting for QR-code Confirmation"
 
 class EScooterAppComponent:
-    def __init__(self, user_id="GUI-User"):
+    def __init__(self, user_id="TestUser_GUI"):
         self._logger = logging.getLogger(__name__)
         print('logging under name {}.'.format(__name__))
         self._logger.info('Starting E-Scooter App Component')
@@ -43,30 +43,26 @@ class EScooterAppComponent:
         
         # Timer for reservation timeout
         self.reservation_timer = None
-        
+    
     def on_connect(self, client, userdata, flags, rc):
         self._logger.debug('MQTT connected to {}'.format(client))
-        self.mqtt_client.subscribe(MQTT_TOPIC_SERVER_TO_APP)
+        # Subscribe to available scooters
+        self.mqtt_client.subscribe(MQTT_TOPIC_AVAILABLE_SCOOTERS)
     
     def on_message(self, client, userdata, msg):
         try:
             payload = json.loads(msg.payload.decode('utf-8'))
             self._logger.debug("Received message: {}".format(payload))
             
-            if 'type' in payload:
-                if payload['type'] == 'available_scooters':
-                    self.update_scooter_list(payload['scooters'])
-                elif payload['type'] == 'reservation_confirmation':
-                    self.show_reservation_confirmation(payload)
-                elif payload['type'] == 'unlock_confirmation':
-                    self.show_unlock_confirmation(payload)
-                elif payload['type'] == 'qr_code_success':
-                    self.handle_qr_code_success(payload)
-                elif payload['type'] == 'activation_fail':
-                    self.handle_activation_failure(payload)
-                elif payload['type'] == 'timeout_deactivation':
-                    self.handle_timeout_deactivation(payload)
-                # Add more message types as needed
+            if msg.topic == MQTT_TOPIC_AVAILABLE_SCOOTERS:
+                self.update_scooter_list(payload)
+            elif msg.topic.startswith("scooter/"):
+                scooter_id = msg.topic.split("/")[1]
+                if msg.topic.endswith("/battery"):
+                    self.update_scooter_battery(scooter_id, payload)
+                elif msg.topic.endswith("/status"):
+                    self.update_scooter_status(scooter_id, payload)
+            # Add more message types as needed
         except Exception as e:
             self._logger.error("Error processing message: {}".format(e))
     
@@ -101,19 +97,22 @@ class EScooterAppComponent:
         self.app.go()
     
     def publish_command(self, command):
+        """Publish a command to the server"""
         payload = json.dumps(command)
         self._logger.info("Publishing: {}".format(command))
-        self.mqtt_client.publish(MQTT_TOPIC_APP_TO_SERVER, payload=payload, qos=2)
+        self.mqtt_client.publish(MQTT_TOPIC_COMMANDS, payload=payload, qos=2)
     
     def request_available_scooters(self):
+        """Request a list of available scooters from the server"""
         self.app.setLabel("status", "Requesting available scooters...")
         command = {
-            "command": "available_scooters",
+            "command": "find_scooters",
             "user_id": self.user_id
         }
         self.publish_command(command)
     
     def update_scooter_list(self, scooters):
+        """Update the GUI with the list of available scooters"""
         self.available_scooters = scooters
         scooter_display = [f"ID: {s['id']} - Battery: {s['battery']}% - Distance: {s['distance']}m"
                           for s in scooters]
@@ -121,12 +120,30 @@ class EScooterAppComponent:
         self.app.setLabel("status", f"Found {len(scooters)} available scooters")
     
     def select_scooter(self, selection):
+        """Handle selection of a scooter from the list"""
         if selection is not None and len(selection) > 0:
             index = self.app.getListBox("scooters").index(selection[0])
             self.selected_scooter = self.available_scooters[index]
             self.app.setLabel("status", f"Selected scooter {self.selected_scooter['id']}")
+            
+            # Subscribe to battery and status topics for the selected scooter
+            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter['id']}/battery")
+            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter['id']}/status")
+    
+    def update_scooter_battery(self, scooter_id, battery_level):
+        """Update the battery level of a specific scooter"""
+        if self.selected_scooter and self.selected_scooter['id'] == scooter_id:
+            self.selected_scooter['battery'] = battery_level
+            self.app.setLabel("status", f"Scooter {scooter_id} battery: {battery_level}%")
+    
+    def update_scooter_status(self, scooter_id, status):
+        """Update the status of a specific scooter"""
+        if self.selected_scooter and self.selected_scooter['id'] == scooter_id:
+            self.selected_scooter['status'] = status
+            self.app.setLabel("status", f"Scooter {scooter_id} status: {status}")
     
     def reserve_scooter(self):
+        """Reserve the selected scooter"""
         if self.selected_scooter is None:
             self.app.setLabel("status", "Please select a scooter first")
             return
@@ -168,16 +185,8 @@ class EScooterAppComponent:
             self.app.setButtonState("End Ride", "disabled")
             self.app.setLabel("status", "Reservation canceled.")
     
-    def show_reservation_confirmation(self, payload):
-        if payload.get('success', False):
-            self.has_reservation = True
-            self.reserved_scooter_id = payload.get('scooter_id')
-            self.app.setLabel("status", f"Scooter {self.reserved_scooter_id} reserved successfully!")
-            self.app.setButtonState("Unlock Scooter", "normal")
-        else:
-            self.app.setLabel("status", f"Reservation failed: {payload.get('message', 'Unknown error')}")
-    
     def unlock_scooter(self):
+        """Unlock the reserved scooter"""
         if not self.has_reservation:
             self.app.setLabel("status", "No active reservation")
             return
@@ -190,16 +199,23 @@ class EScooterAppComponent:
         }
         self.publish_command(command)
     
-    def show_unlock_confirmation(self, payload):
-        if payload.get('success', False):
-            self.app.setLabel("status", f"Scooter {self.reserved_scooter_id} unlocked! Enjoy your ride.")
-            self.app.setButtonState("End Ride", "normal")
-            self.app.setButtonState("Unlock Scooter", "disabled")
-            self.current_state = ACTIVE_SCOOTER
-        else:
-            self.app.setLabel("status", f"Unlock failed: {payload.get('message', 'Unknown error')}")
+    def scan_qr_code(self):
+        """Scan QR code to activate the scooter"""
+        if not self.has_reservation:
+            self.app.setLabel("status", "No active reservation to scan QR code")
+            return
+        
+        self.app.setLabel("status", "Scanning QR code...")
+        command = {
+            "command": "scan_qr_code",
+            "scooter_id": self.reserved_scooter_id,
+            "user_id": self.user_id
+        }
+        self.publish_command(command)
+        self.current_state = WAITING_FOR_QR_CODE
     
     def end_ride(self):
+        """End the current ride"""
         if self.reserved_scooter_id is None:
             self.app.setLabel("status", "No active ride")
             return
@@ -219,36 +235,11 @@ class EScooterAppComponent:
         self.app.setButtonState("Unlock Scooter", "disabled")
         self.app.setLabel("status", "Ride ended. Thank you for using E-Scooter!")
     
-    def scan_qr_code(self):
-        if not self.has_reservation:
-            self.app.setLabel("status", "No active reservation to scan QR code")
-            return
-        
-        self.app.setLabel("status", "Scanning QR code...")
-        command = {
-            "command": "scan_qr_code",
-            "scooter_id": self.reserved_scooter_id,
-            "user_id": self.user_id
-        }
-        self.publish_command(command)
-        self.current_state = WAITING_FOR_QR_CODE
-    
-    def handle_qr_code_success(self, payload):
-        if payload.get('success', False):
-            self.app.setLabel("status", "QR code scanned successfully. Scooter activated.")
-            self.current_state = ACTIVE_SCOOTER
-        else:
-            self.app.setLabel("status", "QR code scan failed. Please try again.")
-    
-    def handle_activation_failure(self, payload):
-        self.app.setLabel("status", "Activation failed. Please try again.")
-    
-    def handle_timeout_deactivation(self, payload):
-        self.app.setLabel("status", "Scooter deactivated due to timeout.")
-        self.cancel_reservation()
-    
     def stop(self):
+        """Stop the component."""
+        # stop the MQTT client
         self.mqtt_client.loop_stop()
+
 
 # Set up logging configuration
 debug_level = logging.DEBUG
