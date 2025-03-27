@@ -8,7 +8,9 @@ machine = "scooter"
 class MQTT_client:
     def __init__(self):
         self.stm_driver : Driver
-        self.client: mqtt.Client
+        self.client: mqtt.Client = mqtt.Client()
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
 
     def set_driver(self, driver): self.stm_driver = driver
 
@@ -22,9 +24,6 @@ class MQTT_client:
         self.stm_driver.send(msg.payload.decode(), machine)
 
     def start(self, broker, port):
-        self.client = mqtt.Client()
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
         print("Connecting to {}:{}".format(broker, port))
         self.client.connect(broker, port)
 
