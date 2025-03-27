@@ -9,9 +9,8 @@ black = (0, 0, 0)
 white = (255, 255, 255)
 
 class RedLightThread(threading.Thread):
-    def __init__(self, function):
+    def __init__(self):
         super().__init__()
-        self.function = function
         self.stop_event = threading.Event()
 
     def run(self):
@@ -22,18 +21,6 @@ class RedLightThread(threading.Thread):
             sense.clear(black)
             sleep(1)
 
-    def set_and_run(self, type_str):
-        """Sets the function to run and starts the thread."""
-        match type_str:
-            case "red":
-                self.function = red_light
-            case "driving_lights":
-                self.function = lambda: sense.clear(white)
-            case _:
-                print("Not implemented")
-                self.function = lambda : 0 
-
-        self.run()
 
     def stop(self):
         """Stops the thread loop."""
