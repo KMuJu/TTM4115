@@ -1,41 +1,60 @@
 from stmpy import Machine
+from mqtt_client import MQTT_client
 
 
 class Scooter_stm:
     def __init__(self, serial_number:int) -> None:
         self.stm : Machine
-        self.client = None
+        self.client : MQTT_client
         self.serial_number = serial_number
+        self.battery_level = 100
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
+    def update_battery_level(self, battery_level: int): self.battery_level = battery_level
 
     def idle_entry(self):
-        print("idle entry")
+        self.client.publish(f"{self.serial_number}/status", "available")
+        self.client.subscribe(f"{self.serial_number}/status")
+        self.light_send("off")
 
     def reserved_entry(self):
-        print("reserved entry")
+        self.light_send("red_blink")
+        self.proximity_sensor_listen(347862) # TODO: user id
 
     def active_but_static_entry(self):
         print("active but static entry")
 
     def battery_low(self):
-        print("battery low")
+        self.client.publish(f"{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
 
     def user_cancel(self):
-        print("user cancel")
+        self.client.publish(f"{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
 
     def static_timeout(self):
-        print("static timeout")
+        self.client.publish(f"{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
 
     def qr_qode_activated(self):
-        print("qr qode activated")
+        self.client.publish(f"{self.serial_number}/status", "active")
+        self.light_send("driving_lights")
 
     def reserved_timeout(self):
-        print("reserved timeout")
+        self.client.publish(f"{self.serial_number}/status", "rerserved_but_ignored")
+        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
 
     def proximity(self):
-        print("proximity")
+        self.client.publish(f"{self.serial_number}/status", "active")
+        self.light_send("driving_lights")
+
+
+    def light_send(self, type):
+        print("changing light to", type)
+
+    def proximity_sensor_listen(self, userid):
+        print("proximity sensor listen")
 
 
 init = {
