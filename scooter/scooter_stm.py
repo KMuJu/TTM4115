@@ -1,13 +1,11 @@
-
-
-
 from stmpy import Machine
 
 
 class Scooter_stm:
-    def __init__(self) -> None:
+    def __init__(self, serial_number:int) -> None:
         self.stm : Machine
         self.client = None
+        self.serial_number = serial_number
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm

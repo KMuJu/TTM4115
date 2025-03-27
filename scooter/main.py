@@ -1,11 +1,12 @@
 from stmpy import Machine, Driver
-from scooter import Scooter_stm, transitions, states
+from scooter_stm import Scooter_stm, transitions, states
 from mqtt_client import MQTT_client
-import paho.mqtt.client as mqtt
+# import paho.mqtt.client as mqtt
 
 broker, port = "mqtt20.iik.ntnu.no", 1883
+scooter_serial = 32467129
 
-scooter = Scooter_stm()
+scooter = Scooter_stm(scooter_serial)
 stm = Machine(transitions=transitions, obj=scooter, states=states, name='scooter')
 scooter.set_stm(stm)
 
