@@ -62,7 +62,7 @@ class Scooter_stm:
 
         sense.clear()
         if type_str == "red_blink":
-            self.red_light_thread.set_and_run(type_str)
+            self.red_light_thread.run()
         elif type_str == "driving_lights":
             sense.clear((255, 255, 255))
 
