@@ -11,7 +11,7 @@ MQTT_PORT = 1883
 # TODO: Update with your team's topics
 MQTT_TOPIC_APP_TO_SERVER = 'ttm4115/team_19/app_to_server'
 MQTT_TOPIC_SERVER_TO_APP = 'ttm4115/team_19/server_to_app'
-
+# Test
 
 class EScooterAppComponent:
     """
