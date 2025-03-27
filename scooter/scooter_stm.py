@@ -1,5 +1,7 @@
+from threading import Thread
 from stmpy import Machine
 from mqtt_client import MQTT_client
+from lights import RedLightThread, red_light, sense
 
 
 class Scooter_stm:
@@ -8,6 +10,8 @@ class Scooter_stm:
         self.client : MQTT_client
         self.serial_number = serial_number
         self.battery_level = 100
+        self.red_light_thread = RedLightThread(red_light)
+        self.light = ""
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
@@ -50,8 +54,19 @@ class Scooter_stm:
         self.light_send("driving_lights")
 
 
-    def light_send(self, type):
-        print("changing light to", type)
+    def light_send(self, type_str):
+        print("changing light to", type_str)
+        if self.light == "red_blink":
+            self.red_light_thread.stop()
+            self.red_light_thread.join()
+
+        sense.clear()
+        if type_str == "red_blink":
+            self.red_light_thread.set_and_run(type_str)
+        elif type_str == "driving_lights":
+            sense.clear((255, 255, 255))
+
+        self.light = type_str
 
     def proximity_sensor_listen(self, userid):
         print("proximity sensor listen")
