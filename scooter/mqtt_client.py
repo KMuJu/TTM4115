@@ -40,8 +40,8 @@ class MQTT_client:
                 print("Data sent to commands is not json")
                 return
 
-
-        self.stm_driver.send(msg.payload.decode(), machine)
+        else:
+            self.stm_driver.send(msg.payload.decode(), machine)
 
     def start(self, broker, port):
         print("Connecting to {}:{}".format(broker, port))

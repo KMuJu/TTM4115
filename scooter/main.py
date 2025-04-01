@@ -24,8 +24,12 @@ def main():
 
     while True:
         s = input("Send to mqtt:")
-        print("Sending: ", s)
-        client.client.publish("group19/test", s)
+        sending = '{"command":"reserved", "scotter_id":32467129, "user_id":100}' if s == "r"\
+        else '{"command":"qr_code_activated", "scotter_id":32467129, "user_id":100}' if s == "q"\
+        else '{"command":"user_cancel", "scotter_id":32467129, "user_id":100}' if s == "u"\
+        else s
+        print("Sending: ", sending)
+        client.client.publish("group19/test", sending)
 
 if __name__ == "__main__":
     try:
