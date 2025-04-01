@@ -12,10 +12,12 @@ class Scooter_stm:
         self.battery_level = 100
         self.red_light_thread = RedLightThread()
         self.light = ""
+        self.userid = -1
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
     def update_battery_level(self, battery_level: int): self.battery_level = battery_level
+    def set_userid(self, userid: int): self.userid = userid
 
     def idle_entry(self):
         self.client.publish(f"{self.serial_number}/status", "available")
@@ -24,7 +26,7 @@ class Scooter_stm:
 
     def reserved_entry(self):
         self.light_send("red_blink")
-        self.proximity_sensor_listen(347862) # TODO: user id
+        self.proximity_sensor_listen(self.userid)
 
     def active_but_static_entry(self):
         print("active but static entry")
@@ -36,6 +38,7 @@ class Scooter_stm:
     def user_cancel(self):
         self.client.publish(f"{self.serial_number}/status", "bill_user")
         self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.userid = -1
 
     def static_timeout(self):
         self.client.publish(f"{self.serial_number}/status", "bill_user")
@@ -70,7 +73,7 @@ class Scooter_stm:
         self.light = type_str
 
     def proximity_sensor_listen(self, userid):
-        print("proximity sensor listen")
+        print("proximity sensor listen to", userid)
 
 
 init = {
