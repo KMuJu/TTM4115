@@ -4,8 +4,6 @@ import json
 
 from stmpy import Driver
 
-from scooter_stm import Scooter_stm
-
 machine = "scooter"
 
 class MQTT_client:
@@ -31,7 +29,7 @@ class MQTT_client:
                 if command["scooter_id"] != self.serial_number:
                     return
                 if command["command"] == "reserved" or command["command"] == "qr_code_activated":
-                    stm: Scooter_stm = self.stm_driver._stms_by_id[machine] # Get stm from private variable
+                    stm = self.stm_driver._stms_by_id[machine] # Get stm from private variable
                     stm.set_userid(int(command["user_id"]))
                     self.stm_driver.send(command["command"], machine)
                 elif command["command"] == "user_cancel":

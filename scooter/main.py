@@ -15,7 +15,7 @@ def main():
     driver = Driver()
     driver.add_machine(stm)
 
-    client = MQTT_client()
+    client = MQTT_client(scooter_serial)
     scooter.set_client(client)
     client.set_driver(driver)
 
