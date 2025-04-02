@@ -2,7 +2,7 @@ from stmpy import Machine
 from mqtt_client import MQTT_client
 from lights import RedLightThread, sense
 from constants import BASE
-from proximity_thread import ProximityThread
+from joystick_thread import JoystickThread
 
 
 class Scooter_stm:
@@ -12,9 +12,11 @@ class Scooter_stm:
         self.serial_number = serial_number
         self.battery_level = 100
         self.red_light_thread = RedLightThread()
-        self.proximity_thread: ProximityThread
+        self.proximity_thread: JoystickThread = None
+        self.driving_thread: JoystickThread = None
         self.light = ""
         self.userid = -1
+        self.driving = False
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
@@ -29,6 +31,7 @@ class Scooter_stm:
     def reserved_entry(self):
         self.light_send("red_blink")
         self.proximity_sensor_listen(self.userid)
+        self.driving_listen()
 
     def active_but_static_entry(self):
         print("active but static entry")
@@ -79,18 +82,43 @@ class Scooter_stm:
 
         self.light = type_str
 
+    def handle_proximity(self, event):
+        if event.action == "pressed" and event.direction == "middle":
+            sense.show_letter("M")
+            self.stm.send("proximity")
+
+    def handle_driving(self, event):
+        if event.action == "pressed" and event.direction != "middle":
+            sense.show_letter("M")
+            self.driving = True
+            self.stm.send("driving")
+        elif self.driving and event.action != "pressed":
+            self.driving = False
+            self.stm.send("standing_still")
+
+
     def proximity_sensor_listen(self, userid):
         print("proximity sensor listen to", userid)
-        if self.proximity_thread.is_alive():
+        if self.proximity_thread is not None and self.proximity_thread.is_alive():
             return
-        self.proximity_thread = ProximityThread(lambda _: self.stm.send("proximity")) # Trigger proximity when pressed
+        self.proximity_thread = JoystickThread(self.handle_proximity) # Trigger proximity when pressed
         self.proximity_thread.start()
+
+    def driving_listen(self):
+        print("Listening to joystick")
+        if self.driving_thread is not None and self.driving_thread.is_alive():
+            return
+        self.driving_thread = JoystickThread(self.handle_driving) # Trigger driving when pressed
+        self.driving_thread.start()
 
     def reserved_exit(self):
         print("Stopping proximity")
         if self.proximity_thread.is_alive():
             self.proximity_thread.stop()
             self.proximity_thread.join()
+        if self.driving_thread.is_alive():
+            self.driving_thread.stop()
+            self.driving_thread.join()
 
 
 
@@ -195,13 +223,13 @@ idle = {
 
 reserved = {
         "name": "reserved",
-        "entry": "start_timer('t_r', 6000);reserved_entry",
+        "entry": "start_timer('t_r', 60000);reserved_entry",
         "exit": "reserved_exit"
         }
 
 active_but_static = {
         "name": "active_but_static",
-        "entry": "start_timer('t_s', 3000);active_but_static_entry",
+        "entry": "start_timer('t_s', 30000);active_but_static_entry",
         }
 
 active_but_mobile = {
