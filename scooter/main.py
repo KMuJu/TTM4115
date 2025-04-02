@@ -24,9 +24,10 @@ def main():
 
     while True:
         s = input("Send to mqtt:")
-        sending = '{"command":"reserved", "scotter_id":32467129, "user_id":100}' if s == "r"\
-        else '{"command":"qr_code_activated", "scotter_id":32467129, "user_id":100}' if s == "q"\
-        else '{"command":"user_cancel", "scotter_id":32467129, "user_id":100}' if s == "u"\
+        sending = '{"command":"reserve_scooter", "scooter_id":32467129, "user_id":100}' if s == "r"\
+        else '{"command":"scan_qr_code", "scooter_id":32467129, "user_id":100}' if s == "q"\
+        else '{"command":"end_ride", "scooter_id":32467129, "user_id":100}' if s == "u"\
+        else '{"command":"cancel_reservation", "scooter_id":32467129, "user_id":100}' if s == "c"\
         else s
         print("Sending: ", sending)
         client.client.publish("group19/test", sending)

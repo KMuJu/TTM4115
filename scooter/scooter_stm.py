@@ -40,6 +40,11 @@ class Scooter_stm:
         self.client.publish(f"{self.serial_number}/battery", self.battery_level)
         self.userid = -1
 
+    def cancel_reservation(self):
+        self.client.publish(f"{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.userid = -1
+
     def static_timeout(self):
         self.client.publish(f"{self.serial_number}/status", "bill_user")
         self.client.publish(f"{self.serial_number}/battery", self.battery_level)
@@ -49,7 +54,7 @@ class Scooter_stm:
         self.light_send("driving_lights")
 
     def reserved_timeout(self):
-        self.client.publish(f"{self.serial_number}/status", "rerserved_but_ignored")
+        self.client.publish(f"{self.serial_number}/status", "reserved_timeout")
         self.client.publish(f"{self.serial_number}/battery", self.battery_level)
 
     def proximity(self):
@@ -107,11 +112,18 @@ standing_still = {
         }
 
 
-cancel = {
-        "trigger": "user_cancel",
+end_ride = {
+        "trigger": "end_ride",
         "source" : "active_but_static",
         "target" : "idle",
         "effect" : "user_cancel"
+        }
+
+cancel_reservation = {
+        "trigger": "cancel_reservation",
+        "source" : "reserved",
+        "target" : "idle",
+        "effect" : "cancel_reservation"
         }
 
 static_timeout = {
@@ -122,14 +134,14 @@ static_timeout = {
         }
 
 qr_qode = {
-        "trigger": "qr_code_activated",
+        "trigger": "scan_qr_code",
         "source" : "idle",
         "target" : "active_but_static",
         "effect" : "qr_qode_activated"
         }
 
 reserved_t = {
-        "trigger": "reserved",
+        "trigger": "reserve_scooter",
         "source" : "idle",
         "target" : "reserved"
         }
@@ -154,7 +166,8 @@ transitions = [
         battery_low_mobile,
         driving,
         standing_still,
-        cancel,
+        end_ride,
+        cancel_reservation,
         static_timeout,
         qr_qode,
         reserved_t,

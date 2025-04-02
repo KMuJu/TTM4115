@@ -28,11 +28,11 @@ class MQTT_client:
                 command = json.loads(msg.payload.decode())
                 if command["scooter_id"] != self.serial_number:
                     return
-                if command["command"] == "reserved" or command["command"] == "qr_code_activated":
-                    stm = self.stm_driver._stms_by_id[machine] # Get stm from private variable
+                if command["command"] in ["reserve_scooter", "scan_qr_code"]:
+                    stm = self.stm_driver._stms_by_id[machine]._obj # Get stm from private variable
                     stm.set_userid(int(command["user_id"]))
                     self.stm_driver.send(command["command"], machine)
-                elif command["command"] == "user_cancel":
+                elif command["command"] in ["end_ride", "cancel_reservation"]:
                     self.stm_driver.send(command["command"], machine)
                 else:
                     print("Command not recognized")
