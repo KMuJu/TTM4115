@@ -12,7 +12,7 @@ class Scooter_stm:
         self.serial_number = serial_number
         self.battery_level = 100
         self.red_light_thread = RedLightThread()
-        self.proximity_thread: ProximityThread = ProximityThread()
+        self.proximity_thread: ProximityThread
         self.light = ""
         self.userid = -1
 
@@ -83,6 +83,7 @@ class Scooter_stm:
         print("proximity sensor listen to", userid)
         if self.proximity_thread.is_alive():
             return
+        self.proximity_thread = ProximityThread(lambda _: self.stm.send("proximity")) # Trigger proximity when pressed
         self.proximity_thread.start()
 
     def reserved_exit(self):
@@ -90,7 +91,6 @@ class Scooter_stm:
         if self.proximity_thread.is_alive():
             self.proximity_thread.stop()
             self.proximity_thread.join()
-        self.proximity_thread = ProximityThread()
 
 
 

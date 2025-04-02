@@ -4,9 +4,10 @@ from sense_hat import SenseHat
 sense = SenseHat()
 
 class ProximityThread(threading.Thread):
-    def __init__(self):
+    def __init__(self, callback):
         super().__init__()
         self.stop_event = threading.Event()
+        self.callback = callback
 
     def run(self):
         """Runs the given function in a loop until stopped."""
@@ -16,6 +17,7 @@ class ProximityThread(threading.Thread):
                 if event.action == "pressed" and event.direction == "middle":
                     print("Proximity")
                     sense.show_letter("M")      # Enter key
+                    self.callback()
 
 
     def stop(self):
