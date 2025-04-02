@@ -1,4 +1,5 @@
 from stmpy import Machine, Driver
+from constants import COMMANDS
 from scooter_stm import Scooter_stm, transitions, states
 from mqtt_client import MQTT_client
 from lights import sense
@@ -30,7 +31,7 @@ def main():
         else '{"command":"cancel_reservation", "scooter_id":32467129, "user_id":100}' if s == "c"\
         else s
         print("Sending: ", sending)
-        client.client.publish("group19/test", sending)
+        client.client.publish(COMMANDS, sending)
 
 if __name__ == "__main__":
     try:

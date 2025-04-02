@@ -1,7 +1,7 @@
-from threading import Thread
 from stmpy import Machine
 from mqtt_client import MQTT_client
 from lights import RedLightThread, sense
+from constants import BASE
 
 
 class Scooter_stm:
@@ -32,33 +32,33 @@ class Scooter_stm:
         print("active but static entry")
 
     def battery_low(self):
-        self.client.publish(f"{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def user_cancel(self):
-        self.client.publish(f"{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
         self.userid = -1
 
     def cancel_reservation(self):
-        self.client.publish(f"{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
         self.userid = -1
 
     def static_timeout(self):
-        self.client.publish(f"{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def qr_qode_activated(self):
-        self.client.publish(f"{self.serial_number}/status", "active")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
         self.light_send("driving_lights")
 
     def reserved_timeout(self):
-        self.client.publish(f"{self.serial_number}/status", "reserved_timeout")
-        self.client.publish(f"{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "reserved_timeout")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def proximity(self):
-        self.client.publish(f"{self.serial_number}/status", "active")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
         self.light_send("driving_lights")
 
 

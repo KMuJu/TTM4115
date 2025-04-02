@@ -4,6 +4,8 @@ import json
 
 from stmpy import Driver
 
+from constants import COMMANDS
+
 machine = "scooter"
 
 class MQTT_client:
@@ -23,7 +25,7 @@ class MQTT_client:
         print(f"on_message(): topic: {msg.topic}")
         print(f"Message: {msg.payload.decode()}")
 
-        if msg.topic == "/commands":
+        if msg.topic == COMMANDS:
             try:
                 command = json.loads(msg.payload.decode())
                 if command["scooter_id"] != self.serial_number:
@@ -48,7 +50,7 @@ class MQTT_client:
         self.client.connect(broker, port)
 
         # self.client.subscribe(f"/scooter/{self.serial_number}/reserver")
-        self.client.subscribe("/commands")
+        self.client.subscribe(COMMANDS)
         try:
             thread = Thread(target=self.client.loop_forever)
             thread.start()

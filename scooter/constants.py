@@ -1,0 +1,2 @@
+BASE = ""
+COMMANDS = BASE + "/commands"
