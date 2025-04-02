@@ -2,6 +2,7 @@ from stmpy import Machine
 from mqtt_client import MQTT_client
 from lights import RedLightThread, sense
 from constants import BASE
+from proximity_thread import ProximityThread
 
 
 class Scooter_stm:
@@ -11,6 +12,7 @@ class Scooter_stm:
         self.serial_number = serial_number
         self.battery_level = 100
         self.red_light_thread = RedLightThread()
+        self.proximity_thread: ProximityThread = ProximityThread()
         self.light = ""
         self.userid = -1
 
@@ -79,6 +81,17 @@ class Scooter_stm:
 
     def proximity_sensor_listen(self, userid):
         print("proximity sensor listen to", userid)
+        if self.proximity_thread.is_alive():
+            return
+        self.proximity_thread.start()
+
+    def reserved_exit(self):
+        print("Stopping proximity")
+        if self.proximity_thread.is_alive():
+            self.proximity_thread.stop()
+            self.proximity_thread.join()
+        self.proximity_thread = ProximityThread()
+
 
 
 init = {
@@ -183,6 +196,7 @@ idle = {
 reserved = {
         "name": "reserved",
         "entry": "start_timer('t_r', 6000);reserved_entry",
+        "exit": "reserved_exit"
         }
 
 active_but_static = {
