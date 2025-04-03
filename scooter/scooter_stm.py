@@ -39,7 +39,6 @@ class Scooter_stm:
         self.proximity_sensor_listen(self.userid)
 
     def active_but_static_entry(self):
-        # print("active but static entry")
         sense.show_letter("S")
         self.driving_listen()
 
@@ -97,7 +96,6 @@ class Scooter_stm:
         self.proximity_thread.start()
 
     def driving_listen(self):
-        print("Listening to joystick")
         self.isDriving = True
         if self.driving_thread is not None and self.driving_thread.is_alive():
             return
@@ -117,14 +115,14 @@ class Scooter_stm:
         while self.isProximity:
             for event in sense.stick.get_events():
                 if event.action == "pressed" and event.direction == "middle":
-                    sense.show_letter("M")
+                    sense.show_letter("P")
                     self.stm.send("proximity")
 
     def handle_driving(self):
         while self.isDriving:
             for event in sense.stick.get_events():
                 if event.action == "pressed" and event.direction != "middle":
-                    sense.show_letter("M")
+                    sense.show_letter("D")
                     self.driving = True
                     self.stm.send("driving")
                 elif self.driving and event.action == "released":
