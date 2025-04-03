@@ -24,14 +24,17 @@ class Scooter_stm:
         self.isProximity = False
         self.driving = False
 
+    def init(self):
+        self.client.publish(f"commands", f"serial:{self.serial_number}")
+
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
     def update_battery_level(self, battery_level: int): self.battery_level = battery_level
     def set_userid(self, userid: int): self.userid = userid
 
     def idle_entry(self):
-        self.client.publish(f"{self.serial_number}/status", "available")
-        self.client.subscribe(f"{self.serial_number}/status")
+        self.client.publish(f"scooter/{self.serial_number}/status", "idle")
+        self.client.subscribe(f"scooter/{self.serial_number}/status")
         self.light_send("off")
 
     def reserved_entry(self):
@@ -143,6 +146,7 @@ class Scooter_stm:
 init = {
         "source": "initial",
         "target": "idle",
+        "effect": "init"
         }
 
 battery_low_static = {

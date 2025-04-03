@@ -8,6 +8,18 @@ from lights import sense
 broker, port = "mqtt20.iik.ntnu.no", 1883
 scooter_serial = 32467129
 
+"""
+skriv status til scooter/serial/status
+oppstart
+    -> send scooter:serial til commands
+
+les triggers fra scooter/serial/commands
+fjerne timer fra reserved, skal være en trigger fra serveren
+    ha en timer som er litt lengre enn den på serveren
+
+endre idle entry publish til idle fra available
+"""
+
 def main():
     scooter = Scooter_stm(scooter_serial)
     stm = Machine(transitions=transitions, obj=scooter, states=states, name='scooter')
