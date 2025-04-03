@@ -3,56 +3,62 @@ from threading import Thread
 import json
 import stmpy # type: ignore
 import logging
+import time
 
-MQTT_BROKER = 'mqtt20.iik.ntnu.no'
+MQTT_BROKER = 'mqtt-broker'
 MQTT_PORT = 1883
 
 # TODO: choose proper topics for communication
-MQTT_TOPIC_INPUT = 'ttm4115/team_19/command'
-MQTT_TOPIC_OUTPUT = 'ttm4115/team_19/answer'
+MQTT_TOPIC_INPUT = 'commands'
+MQTT_TOPIC_OUTPUT = 'debug'
 
 
 class qr_code_scanner:
-    def __init__(self, name, duration, user_id, scooter_id):
+    def __init__(self, user_id, scooter_id):
         """
         The component handle a qr-code activation.
         """
         self._logger = logging.getLogger(__name__)
-        self.name = name
-        self.duration = duration
+  
         self.user_id = user_id
         self.scooter_id = scooter_id
 
         # TODO: build the transitions
 
 
-    def create_machine(timer_name, duration, user_id, scooter_id):
+    def create_machine(user_id, scooter_id):
         """
         Create a complete state machine instance for the timer object.
         Note that this method is static (no self argument), since it is a helper
         method to create this object.
         """
-        qr_code_handler = qr_code_scanner(name=timer_name, duration=duration, user_id=user_id, scooter_id=scooter_id)
+        qr_code_handler = qr_code_scanner(user_id=user_id, scooter_id=scooter_id)
         t0 = {'source': 'initial',
-              'target': 'active',
-              'effect': 'started'}
+              'target': 'wait_for_response',
+              'effect': 'initiate_scooter'}
         t1 = {
-            'source': 'active',
-            'target': 'completed',
+            'source': 'wait_for_response',
+            'target': 'wait_for_cancellation',
             'trigger': 't',
-            'effect': 'timer_completed'}
+            'effect': 'activation_timeout'}
         t2 = {
-            'source': 'active',
-            'trigger': 'report',
-            'target': 'active',
-            'effect': 'report_status'}
+            'source': 'wait_for_response',
+            'trigger': 'activate_scooter',
+            'target': 'confirmed active',
+            'effect': 'scooter_activated'}
         t3 = {
-            'source': 'active',
-            'trigger': 'cancel',
-            'target': 'completed',
-            'effect': 'cancel_timer'
+            'source': 'wait_for_cancellation',
+            'trigger': 't1',
+            'target': 'reset_scooter',
+            'effect': 'data_reset'
         }
-        qr_stm = stmpy.Machine(name=timer_name, transitions=[t0, t1, t2, t3],
+        t4 = {
+            'source': 'wait_for_cancellation',
+            'trigger': 'deactivated',
+            'target': 'reset_scooter',
+            'effect': 'data_reset'
+        }
+        qr_stm = stmpy.Machine(name=scooter_id+"_qr", transitions=[t0, t1, t2, t3, t4],
                                   obj=qr_code_handler)
         qr_code_handler.stm = qr_stm
         return qr_code_handler    
@@ -60,47 +66,206 @@ class qr_code_scanner:
 
     # TODO define functions as transition effetcs
 
-    def started(self):
-        self.stm.start_timer('t', self.duration * 1000)
-        self._logger.debug('New timer {} with duration {} started.'
+    def initiate_scooter(self):
+        self.stm.start_timer('t' , 8 * 1000)
+        # Example MQTT: self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        # MQTT message to activate scooter
+        # MQTT to remove scooter from available list
+
+        self._logger.debug('Waiting for response started.'
                            .format(self.name, self.duration))
 
-    def timer_completed(self):
-        self._logger.debug('Timer {} expired.'.format(self.name))
+    def scooter_activated(self):
+        self._logger.debug('Scooter {} is active for user {}.'.format(self.scooter_id, self.user_id))
+        # Code to activate enabled scooter machine
         self.stm.terminate()
 
-    def report_status(self):
-        self._logger.debug('Checking timer status.')
-        time = int(self.stm.get_timer('t') / 1000)
-        message = 'Timer {} has about {} seconds left'.format(self.name, time)
+    def activation_timeout(self):
+        self._logger.debug('Activated timed out. Deactivating scooter {}.'.format(self.scooter_id))
+        self.stm.start_timer('t1' , 60 * 1000)
+        # Publish message to scooter for deactivation
         self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
     
-    def cancel_timer(self):
-        self._logger.debug('Cancelling timer {}.'.format(self.name))
-        message = 'Timer {} has been terminated'.format(self.name)
+    def data_reset(self):
+        self._logger.debug('Scooter {} deactivated and added back to pool.'.format(self.scooter_id))
         self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        self.stm.terminate()
+
+# -----------------------------
+
+class reserve_scooter:
+    def __init__(self, user_id, scooter_id):
+        """
+        The component handles a reservation and waits for scooter activation.
+        """
+        self._logger = logging.getLogger(__name__)
+        self.user_id = user_id
+        self.scooter_id = scooter_id
+
+        # TODO: build the transitions
+
+
+    def create_machine(user_id, scooter_id):
+        """
+        Create a complete state machine instance for the reservation object.
+        Note that this method is static (no self argument), since it is a helper
+        method to create this object.
+        """
+        reservation_handler = reserve_scooter(user_id=user_id, scooter_id=scooter_id)
+        t0 = {'source': 'initial',
+              'target': 'wait_for_activation',
+              'effect': 'start_timers'}
+        t1 = {
+            'source': 'wait_for_activation',
+            'target': 'wait_for_activation',
+            'trigger': 't2',
+            'effect': 'warn_user'}
+        t2 = {
+            'source': 'wait_for_activation',
+            'trigger': 'activate_scooter',
+            'target': 'active',
+            'effect': 'scooter_activated'}
+        t3 = {
+            'source': 'wait_for_activation',
+            'trigger': 't1',
+            'target': 'reset_scooter',
+            'effect': 'data_reset'
+        }
+        t4 = {
+            'source': 'wait_for_activation',
+            'trigger': 'cancel_reservation',
+            'target': 'reset_scooter',
+            'effect': 'reservation_cancel'
+        }
+        qr_stm = stmpy.Machine(name=scooter_id+"_reservation_machine", transitions=[t0, t1, t2, t3, t4],
+                                  obj=reservation_handler)
+        reservation_handler.stm = qr_stm
+        return reservation_handler    
+
+
+    # TODO define functions as transition effetcs
+
+    def start_timers(self):
+        self._logger.debug('Scooter {} is reserved for user {}.'.format(self.scooter_id, self.user_id))
+        self.stm.start_timer('t1' , 10 * 60 * 1000)
+        self.stm.start_timer('t2' , 5 * 60 * 1000)
+        # Code to activate proximity activation
+        # MQTT message to user that they have reserved
+
+    def reservation_cancel(self):
+        self.logger.debug('Reservation cancelled for scooter {}.'.format(self.scooter_id))
+        # Code to cancel reservation
+        # MQTT message to user that they have cancelled
+        self.stm.terminate()
+
+    def scooter_activated(self):
+        self._logger.debug('Scooter {} is active for user {}.'.format(self.scooter_id, self.user_id))
+        # Code to activate enabled scooter machine passing reservation_duration as 10 minutes - t1
+        # MQTT message to user that they have activated the scooter
+        self.stm.terminate()
+
+    def warn_user(self):
+        self._logger.debug('User {} has spent half their reservation time for scooter {}.'.format(self.user_id, self.scooter_id))
+        # Publish message to scooter for deactivation
+        # Set MQTT topic
+        message = "You have spent half your reservation time. Please activate the scooter."
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+    
+    def data_reset(self):
+        self._logger.debug('Scooter {} deactivated and added back to pool.'.format(self.scooter_id))
+        # Set MQTT topic
+        message = "Your reservation has timed out. Scooter {} is now available for other users.".format(self.scooter_id)
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        # Clean up of scooter parameters
         self.stm.terminate()
     
 #-----------------------------
 
-class TimerManagerComponent:
+class active_scooter:
+    def __init__(self, reservation_time, user_id, scooter_id):
+        """
+        The component handle a qr-code activation.
+        """
+        self._logger = logging.getLogger(__name__)
+        self.user_id = user_id
+        self.scooter_id = scooter_id
+        self.reservation_time = reservation_time
+        self.start_time = time.time()
+
+        # TODO: build the transitions
+
+
+    def create_machine(reservation_time, user_id, scooter_id):
+        """
+        Create a complete state machine instance for the reservation object.
+        Note that this method is static (no self argument), since it is a helper
+        method to create this object.
+        """
+        active_handler = active_scooter(name=scooter_id+"_active", reservation_time=reservation_time, user_id=user_id, scooter_id=scooter_id)
+        t0 = {'source': 'initial',
+              'target': 'active_scooter'}
+        t1 = {
+            'source': 'active_scooter',
+            'target': 'trip_complete',
+            'trigger': 'trip_complete',
+            'effect': 'deactivate_scooter'}
+        t2 = {
+            'source': 'active_scooter',
+            'trigger': 'scooter_inactive',
+            'target': 'unactive',
+            'effect': 'grace_wait'}
+        t3 = {
+            'source': 'unactive',
+            'trigger': 't1',
+            'target': 'reset_scooter',
+            'effect': 'data_reset'
+        }
+        t4 = {
+            'source': 'unactive',
+            'trigger': 'qr_initiation',
+            'target': 'qr_start_scooter',
+            'effect': 'qr_code_starter'
+        }
+        qr_stm = stmpy.Machine(name=scooter_id+"_active", transitions=[t0, t1, t2, t3, t4],
+                                  obj=active_handler)
+        active_handler.stm = qr_stm
+        return active_handler    
+
+
+    # TODO define functions as transition effetcs
+
+    def deactivate_scooter(self):
+        self._logger.debug('Trip complete for {} for user {}. Resetting Scooter'.format(self.scooter_id, self.user_id))
+        trip_time = time.time() - self.start_time + self.reservation_time
+        message = "Trip complete. You have used the scooter for {} seconds.".format(trip_time)
+        # Set MQTT topic
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        # MQTT message to user that they have reserved
+        # Reset scooter
+        self.stm.terminate()
+
+    def grace_wait(self):
+        self._logger.debug('Scooter {} reports inactivity. User {} billed.'.format(self.scooter_id, self.user_id))
+        # Prepare MQTT message to user about inactivity
+        # Set scooter to available, but not in available scooter list
+        # Bill user
+        # Start timer 5 min
+
+    def qr_code_starter(self):
+        self._logger.debug('Scooter {} activation by QR-code started.'.format(self.scooter_id))
+        # Start qr_code scanner
+    
+    def data_reset(self):
+        self._logger.debug('Scooter {} added back to pool.'.format(self.scooter_id))
+        # Set MQTT topic
+        # Add scooter to available list
+        self.stm.terminate()
+    
+#-----------------------------
+
+class Server_listener:
     """
-    The component to manage named timers in a voice assistant.
-
-    This component connects to an MQTT broker and listens to commands.
-    To interact with the component, do the following:
-
-    * Connect to the same broker as the component. You find the broker address
-    in the value of the variable `MQTT_BROKER`.
-    * Subscribe to the topic in variable `MQTT_TOPIC_OUTPUT`. On this topic, the
-    component sends its answers.
-    * Send the messages listed below to the topic in variable `MQTT_TOPIC_INPUT`.
-
-        {"command": "new_timer", "name": "spaghetti", "duration":50}
-
-        {"command": "status_all_timers"}
-
-        {"command": "status_single_timer", "name": "spaghetti"}
+    The component is made to manage the handling of multiple scooters.
 
     """
 
@@ -139,48 +304,73 @@ class TimerManagerComponent:
             return
         command = payload.get('command')
         self._logger.debug('Command in message is {}'.format(command))
-        if command == 'new_timer':
+        if command == 'user_reserve_scooter':
             try:
                 print(type(self))
-                timer_name = payload.get('name')
-                duration = int(payload.get('duration'))
-                # create a new instance of the timer logic state machine
-                timer_stm = TimerLogic.create_machine(timer_name, duration, self)
+                user_id = payload.get('user')
+                scooter_id = payload.get('serialnumber')
+                # build reservation machine
+                reservation_stm = reserve_scooter.create_machine(user_id, scooter_id, self)
                 # add the machine to the driver to start it
-                self.stm_driver.add_machine(timer_stm)
+                self.stm_driver.add_machine(reservation_stm)
             except Exception as err:
                 self._logger.error('Invalid arguments to command. {}'.format(err))
-        elif command == 'status_all_timers':
-            s = "List of all timers"
-            # We loop over all state machines in the driver. All of them are a
-            # timer that we should include in our list that we present to the
-            # user.
-            for name, stm in self.stm_driver._stms_by_id.items():
-                time = int(stm.get_timer('t')/1000)
-                s = s + 'Timer {} has about {} seconds left. '.format(stm.id, time)
-            self.mqtt_client.publish(MQTT_TOPIC_OUTPUT, s)
-        elif command == 'status_single_timer':
-            # report the status of a single timer
+        elif command == 'qr_code_activation':
             try:
                 print(type(self))
-                timer_name = payload.get('name')
-                # send a signal to the corresponding timer state machine to
-                # trigger reporting the status.
-                self.stm_driver.send('report', timer_name)
+                user_id = payload.get('user')
+                scooter_id = payload.get('serialnumber')
+                # build qr-machine
+                qr_stm = qr_code_scanner.create_machine(user_id, scooter_id, self)
+                # add the machine to the driver to start it
+                self.stm_driver.add_machine(qr_stm)
             except Exception as err:
                 self._logger.error('Invalid arguments to command. {}'.format(err))
-        elif command == 'cancel_timer':
-            # report the status of a single timer
+        elif command == 'scooter_active':
             try:
                 print(type(self))
-                timer_name = payload.get('name')
-                # send a signal to the corresponding timer state machine to
-                # trigger reporting the status.
-                self.stm_driver.send('cancel', timer_name)
+                scooter_id = payload.get('serialnumber')
+                # push resrvation handler along
+                self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
+            except Exception as err:
+                self._logger.error('Invalid arguments to command. {}'.format(err))
+        elif command == 'scooter_active_qr':
+            try:
+                print(type(self))
+                scooter_id = payload.get('serialnumber')
+                # push resrvation handler along
+                self.stm_driver.send('activate_scooter', scooter_id+"_qr")
+            except Exception as err:
+                self._logger.error('Invalid arguments to command. {}'.format(err))
+        elif command == 'user_cancels_reservation':
+            try:
+                print(type(self))
+                scooter_id = payload.get('serialnumber')
+                # push resrvation handler along
+                self.stm_driver.send('cancel_reservation', scooter_id+"_reservation_machine")
+            except Exception as err:
+                self._logger.error('Invalid arguments to command. {}'.format(err))
+        elif command == 'park_scooter':
+            # User ends trip
+            try:
+                print(type(self))
+                scooter_id = payload.get('serialnumber')
+                # push resrvation handler along
+                self.stm_driver.send('trip_complete', scooter_id+"_active")
+            except Exception as err:
+                self._logger.error('Invalid arguments to command. {}'.format(err))
+        elif command == 'scooter_inactive':
+            # Scooter reports inactivity
+            try:
+                print(type(self))
+                scooter_id = payload.get('serialnumber')
+                # push resrvation handler along
+                self.stm_driver.send('scooter_inactive', scooter_id+"_active")
             except Exception as err:
                 self._logger.error('Invalid arguments to command. {}'.format(err))
         else:
-            self._logger.error('Unknown command {}. Message ignored.'.format(command))
+            self._logger.error('Command {} not recognized. Ignoring message.'.format(command))
+            
 
 
     def __init__(self):
@@ -215,6 +405,8 @@ class TimerManagerComponent:
         # Connect to the broker
         self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         # subscribe to proper topic(s) of your choice
+        self.mqtt_client.subscribe("scooters/+/status")
+
         self.mqtt_client.subscribe(MQTT_TOPIC_INPUT)
         # start the internal loop to process MQTT messages
         self.mqtt_client.loop_start()
