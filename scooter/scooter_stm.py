@@ -22,6 +22,7 @@ class Scooter_stm:
         self.userid = -1
         self.isDriving = False
         self.isProximity = False
+        self.driving = False
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
@@ -36,10 +37,10 @@ class Scooter_stm:
     def reserved_entry(self):
         self.light_send("red_blink")
         self.proximity_sensor_listen(self.userid)
-        self.driving_listen()
 
     def active_but_static_entry(self):
         print("active but static entry")
+        self.driving_listen()
 
     def battery_low(self):
         self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
@@ -88,6 +89,7 @@ class Scooter_stm:
 
     def proximity_sensor_listen(self, userid):
         print("proximity sensor listen to", userid)
+        self.isProximity = True
         if self.proximity_thread is not None and self.proximity_thread.is_alive():
             return
         self.proximity_thread = Thread(target = self.handle_proximity) # Trigger proximity when pressed
@@ -95,6 +97,7 @@ class Scooter_stm:
 
     def driving_listen(self):
         print("Listening to joystick")
+        self.isDriving = True
         if self.driving_thread is not None and self.driving_thread.is_alive():
             return
         self.driving_thread = Thread(target = self.handle_driving) # Trigger driving when pressed
@@ -117,18 +120,20 @@ class Scooter_stm:
                     self.stm.send("proximity")
 
     def handle_driving(self):
-        while self.isProximity:
+        while self.isDriving:
             for event in sense.stick.get_events():
                 if event.action == "pressed" and event.direction != "middle":
                     sense.show_letter("M")
                     self.driving = True
                     self.stm.send("driving")
-                elif self.driving and event.action != "pressed":
+                elif self.driving and event.action == "released":
                     self.driving = False
+                    self.isDriving = False
                     self.stm.send("standing_still")
+        self.driving = False
 
     def red_light(self):
-        while self.light == "red_light":
+        while self.light == "red_blink":
             sense.clear((255, 0, 0))
             sleep(0.5)
             sense.clear()
