@@ -1,3 +1,6 @@
 .venv
 __pycache__
 *.py.swp
+server/backend/mqtt/data/
+server/backend/mqtt/log/
+server/commandsender.py
