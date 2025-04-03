@@ -39,7 +39,8 @@ class Scooter_stm:
         self.proximity_sensor_listen(self.userid)
 
     def active_but_static_entry(self):
-        print("active but static entry")
+        # print("active but static entry")
+        sense.show_letter("S")
         self.driving_listen()
 
     def battery_low(self):
