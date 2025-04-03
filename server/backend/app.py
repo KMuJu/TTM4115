@@ -19,11 +19,8 @@ class qr_code_scanner:
         The component handle a qr-code activation.
         """
         self._logger = logging.getLogger(__name__)
-  
         self.user_id = user_id
         self.scooter_id = scooter_id
-
-        # TODO: build the transitions
 
 
     def create_machine(user_id, scooter_id):
@@ -76,20 +73,15 @@ class qr_code_scanner:
 
     def initiate_scooter(self):
         self.stm.start_timer('t' , 8 * 1000)
-        # MQTT message to activate scooter
-        # MQTT to remove scooter from available list
         message = "qr_code_activated"
         topic = "scooters/{}/status".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
-        self._logger.debug('Waiting for response started.'
-                           .format(self.name, self.duration))
+        self._logger.debug('Waiting for response started.')
 
     def scooter_activated(self):
         self._logger.debug('Scooter {} is active for user {}.'.format(self.scooter_id, self.user_id))
-        # Code to activate enabled scooter machine
         active_stm = active_scooter.create_machine(reservation_time=0, user_id=self.user_id, scooter_id=self.scooter_id)
         self.component.stm_driver.add_machine(active_stm)
-        # MQTT message to user that they have activated the scooter
         message = "Scooter {} is now active.".format(self.scooter_id)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
@@ -101,7 +93,6 @@ class qr_code_scanner:
     def activation_timeout(self):
         self._logger.debug('Scooter timed out. Deactivating scooter {}.'.format(self.scooter_id))
         self.stm.start_timer('t1' , 60 * 1000)
-        # Publish message to scooter for deactivation
         message = "deactivated"
         topic = "scooters/{}/status".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
@@ -127,9 +118,6 @@ class reserve_scooter:
         self.user_id = user_id
         self.scooter_id = scooter_id
         self.start_time = time.time()
-
-        # TODO: build the transitions
-
 
     def create_machine(start_time, user_id, scooter_id):
         """
@@ -175,18 +163,15 @@ class reserve_scooter:
         self._logger.debug('Scooter {} is reserved for user {}.'.format(self.scooter_id, self.user_id))
         self.stm.start_timer('t1' , 10 * 60 * 1000)
         self.stm.start_timer('t2' , 5 * 60 * 1000)
-        # Code to activate proximity activation
-        message = "reserved"
+        message = "reserved" # This would in practice include user data to set the "key" for the activation.
         topic = "scooters/{}/status".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
-        # MQTT message to user that they have reserved
         message2 = "Scooter {} is reserved for you.".format(self.scooter_id)
         topic2 = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic2, message2)
 
     def reservation_cancel(self):
         self.logger.debug('Reservation cancelled for scooter {}.'.format(self.scooter_id))
-        # Code to cancel reservation
         message = "available"
         topic = "scooters/{}/status".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
@@ -197,31 +182,28 @@ class reserve_scooter:
 
     def scooter_activated(self):
         self._logger.debug('Scooter {} is active for user {}.'.format(self.scooter_id, self.user_id))
-        # Code to activate enabled scooter machine passing reservation_duration as 10 minutes - t1
-        active_stm = active_scooter.create_machine(reservation_time=(time.time()-self.start_time), user_id=self.user_id, scooter_id=self.scooter_id)
-        # MQTT message to user that they have activated the scooter
         message = "Scooter {} is now active.".format(self.scooter_id)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
         message2 = "active"
         topic2 = "scooters/{}/status".format(self.scooter_id)
         self.component.mqtt_client.publish(topic2, message2)
-        # add the machine to the driver to start it
+        active_stm = active_scooter.create_machine(reservation_time=(time.time()-self.start_time), user_id=self.user_id, scooter_id=self.scooter_id)
         self.component.stm_driver.add_machine(active_stm)
         self.stm.terminate()
 
     def warn_user(self):
         self._logger.debug('User {} has spent half their reservation time for scooter {}.'.format(self.user_id, self.scooter_id))
-        # Publish message to scooter for deactivation
-        # Set MQTT topic
         message = "You have spent half your reservation time. Please activate the scooter."
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        topic = "users/{}".format(self.user_id)
+        self.component.mqtt_client.publish(topic, message)
     
     def data_reset(self):
         self._logger.debug('Scooter {} deactivated and added back to pool.'.format(self.scooter_id))
         # Set MQTT topic
         message = "Your reservation has timed out. Scooter {} is now available for other users.".format(self.scooter_id)
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
+        topic = "users/{}".format(self.user_id)
+        self.component.mqtt_client.publish(topic, message)
         # Clean up of scooter parameters
         message2 = "available"
         topic2 = "scooters/{}/status".format(self.scooter_id)
@@ -240,9 +222,6 @@ class active_scooter:
         self.scooter_id = scooter_id
         self.reservation_time = reservation_time
         self.start_time = time.time()
-
-        # TODO: build the transitions
-
 
     def create_machine(reservation_time, user_id, scooter_id):
         """
@@ -281,28 +260,34 @@ class active_scooter:
         return active_handler    
 
 
-    # TODO define functions as transition effetcs
 
     def deactivate_scooter(self):
         self._logger.debug('Trip complete for {} for user {}. Resetting Scooter'.format(self.scooter_id, self.user_id))
         trip_time = time.time() - self.start_time + self.reservation_time
-        message = "Trip complete. You have used the scooter for {} seconds.".format(trip_time)
-        # Set MQTT topic
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, message)
-        # MQTT message to user that they have reserved
-        # Reset scooter
+        message = "Trip complete. You have used the scooter for {} seconds. You have spent {}kr".format(trip_time, trip_time*0.5//60)
+        topic = "users/{}".format(self.user_id)
+        self.component.mqtt_client.publish(topic, message)
+        message2 = "available"
+        topic2 = "scooters/{}/status".format(self.scooter_id)
+        self.component.mqtt_client.publish(topic2, message2)
+
         self.stm.terminate()
 
     def grace_wait(self):
-        self._logger.debug('Scooter {} reports inactivity. User {} billed.'.format(self.scooter_id, self.user_id))
+        trip_time = time.time() - self.start_time + self.reservation_time
+        self._logger.debug('Scooter {} reports inactivity. User {} billed {}kr.'.format(self.scooter_id, self.user_id, trip_time*0.5//60))
         # Prepare MQTT message to user about inactivity
+        message = "Your scooter {} has been inactive for 5 minutes. You will be billed {}kr.".format(self.scooter_id, trip_time*0.5//60)
+        topic = "users/{}".format(self.user_id)
+        self.component.mqtt_client.publish(topic, message)
         # Set scooter to available, but not in available scooter list
+        message2 = "available-but-unpublished"
+        topic2 = "scooters/{}/status".format(self.scooter_id)
+        self.component.mqtt_client.publish(topic2, message2)
         # Bill user
         # Start timer 5 min
+        self.stm.start_timer('t1' , 5 * 60 * 1000)
 
-    def qr_code_starter(self):
-        self._logger.debug('Scooter {} activation by QR-code started.'.format(self.scooter_id))
-        # Start qr_code scanner
     
     def data_reset(self):
         self._logger.debug('Scooter {} added back to pool.'.format(self.scooter_id))
@@ -444,7 +429,7 @@ class Server_listener:
                 except Exception as err:
                     self._logger.error('Invalid arguments to command. {}'.format(err))
             else:
-            self._logger.error('Command {} not recognized. Ignoring message.'.format(command))
+                self._logger.error('Command {} not recognized. Ignoring message.'.format(command))
             
 
 
@@ -513,3 +498,15 @@ class Server_listener:
 
 # Fjerne/legge til scootere til tilgjengelige scootere liste
 # Blokkere reservering av en scooter som allerede er reservert/aktiv
+
+
+debug_level = logging.DEBUG
+logger = logging.getLogger(__name__)
+logger.setLevel(debug_level)
+ch = logging.StreamHandler()
+ch.setLevel(debug_level)
+formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+t = Server_listener()
