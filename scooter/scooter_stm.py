@@ -1,41 +1,125 @@
 from stmpy import Machine
+from mqtt_client import MQTT_client
+from lights import RedLightThread, sense
+from constants import BASE
+from joystick_thread import JoystickThread
 
 
 class Scooter_stm:
     def __init__(self, serial_number:int) -> None:
         self.stm : Machine
-        self.client = None
+        self.client : MQTT_client
         self.serial_number = serial_number
+        self.battery_level = 100
+        self.red_light_thread = RedLightThread()
+        self.proximity_thread: JoystickThread = None
+        self.driving_thread: JoystickThread = None
+        self.light = ""
+        self.userid = -1
+        self.driving = False
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
+    def update_battery_level(self, battery_level: int): self.battery_level = battery_level
+    def set_userid(self, userid: int): self.userid = userid
 
     def idle_entry(self):
-        print("idle entry")
+        self.client.publish(f"{self.serial_number}/status", "available")
+        self.client.subscribe(f"{self.serial_number}/status")
+        self.light_send("off")
 
     def reserved_entry(self):
-        print("reserved entry")
+        self.light_send("red_blink")
+        self.proximity_sensor_listen(self.userid)
+        self.driving_listen()
 
     def active_but_static_entry(self):
         print("active but static entry")
 
     def battery_low(self):
-        print("battery low")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def user_cancel(self):
-        print("user cancel")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.userid = -1
+
+    def cancel_reservation(self):
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.userid = -1
 
     def static_timeout(self):
-        print("static timeout")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def qr_qode_activated(self):
-        print("qr qode activated")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
+        self.light_send("driving_lights")
 
     def reserved_timeout(self):
-        print("reserved timeout")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "reserved_timeout")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
 
     def proximity(self):
-        print("proximity")
+        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
+        self.light_send("driving_lights")
+
+
+    def light_send(self, type_str):
+        print("changing light to", type_str)
+        if self.light == "red_blink":
+            self.red_light_thread.stop()
+            self.red_light_thread.join()
+            self.red_light_thread = RedLightThread()
+
+        sense.clear()
+        if type_str == "red_blink":
+            self.red_light_thread.start()
+        elif type_str == "driving_lights":
+            sense.clear((255, 255, 255))
+
+        self.light = type_str
+
+    def handle_proximity(self, event):
+        if event.action == "pressed" and event.direction == "middle":
+            sense.show_letter("M")
+            self.stm.send("proximity")
+
+    def handle_driving(self, event):
+        if event.action == "pressed" and event.direction != "middle":
+            sense.show_letter("M")
+            self.driving = True
+            self.stm.send("driving")
+        elif self.driving and event.action != "pressed":
+            self.driving = False
+            self.stm.send("standing_still")
+
+
+    def proximity_sensor_listen(self, userid):
+        print("proximity sensor listen to", userid)
+        if self.proximity_thread is not None and self.proximity_thread.is_alive():
+            return
+        self.proximity_thread = JoystickThread(self.handle_proximity) # Trigger proximity when pressed
+        self.proximity_thread.start()
+
+    def driving_listen(self):
+        print("Listening to joystick")
+        if self.driving_thread is not None and self.driving_thread.is_alive():
+            return
+        self.driving_thread = JoystickThread(self.handle_driving) # Trigger driving when pressed
+        self.driving_thread.start()
+
+    def reserved_exit(self):
+        print("Stopping proximity")
+        if self.proximity_thread.is_alive():
+            self.proximity_thread.stop()
+            self.proximity_thread.join()
+        if self.driving_thread.is_alive():
+            self.driving_thread.stop()
+            self.driving_thread.join()
+
 
 
 init = {
@@ -56,8 +140,8 @@ battery_low_mobile = {
         "target" : "active_but_static"
         }
 
-speeding = {
-        "trigger": "speeding",
+driving = {
+        "trigger": "driving",
         "source" : "active_but_static",
         "target" : "active_but_mobile"
         }
@@ -69,35 +153,42 @@ standing_still = {
         }
 
 
-cancel = {
-        "trigger": "user_cancel",
+end_ride = {
+        "trigger": "end_ride",
         "source" : "active_but_static",
         "target" : "idle",
         "effect" : "user_cancel"
         }
 
+cancel_reservation = {
+        "trigger": "cancel_reservation",
+        "source" : "reserved",
+        "target" : "idle",
+        "effect" : "cancel_reservation"
+        }
+
 static_timeout = {
-        "trigger": "t",
+        "trigger": "t_s",
         "source" : "active_but_static",
         "target" : "idle",
         "effect" : "static_timeout"
         }
 
 qr_qode = {
-        "trigger": "qr_code_activated",
+        "trigger": "scan_qr_code",
         "source" : "idle",
         "target" : "active_but_static",
         "effect" : "qr_qode_activated"
         }
 
 reserved_t = {
-        "trigger": "reserved",
+        "trigger": "reserve_scooter",
         "source" : "idle",
         "target" : "reserved"
         }
 
 reserved_timeout = {
-        "trigger": "t",
+        "trigger": "t_r",
         "source" : "reserved",
         "target" : "idle",
         "effect" : "reserved_timeout"
@@ -114,9 +205,10 @@ transitions = [
         init,
         battery_low_static,
         battery_low_mobile,
-        speeding,
+        driving,
         standing_still,
-        cancel,
+        end_ride,
+        cancel_reservation,
         static_timeout,
         qr_qode,
         reserved_t,
@@ -131,12 +223,13 @@ idle = {
 
 reserved = {
         "name": "reserved",
-        "entry": "start_timer('t', 6000);reserved_entry",
+        "entry": "start_timer('t_r', 60000);reserved_entry",
+        "exit": "reserved_exit"
         }
 
 active_but_static = {
         "name": "active_but_static",
-        "entry": "start_timer('t', 3000);active_but_static_entry",
+        "entry": "start_timer('t_s', 30000);active_but_static_entry",
         }
 
 active_but_mobile = {
