@@ -13,6 +13,11 @@ MQTT_TOPIC_INPUT = 'commands'
 MQTT_TOPIC_OUTPUT = 'debug'
 
 
+# Oppdater til scooter-per-basis topic
+# scooter lager sin topic
+# Skrive initialtre til mqtt på boot
+
+
 class qr_code_scanner:
     def __init__(self, user_id, scooter_id):
         """
@@ -73,8 +78,8 @@ class qr_code_scanner:
 
     def initiate_scooter(self):
         self.stm.start_timer('t' , 8 * 1000)
-        message = "qr_code_activated"
-        topic = "scooters/{}/status".format(self.scooter_id)
+        message = "scan_qr_code"
+        topic = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
         self._logger.debug('Waiting for response started.')
 
@@ -85,24 +90,24 @@ class qr_code_scanner:
         message = "Scooter {} is now active.".format(self.scooter_id)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
-        message2 = "active"
-        topic2 = "scooters/{}/status".format(self.scooter_id)
-        self.component.mqtt_client.publish(topic2, message2)
+        # message2 = "active"
+        # topic2 = "scooters/{}/status".format(self.scooter_id)
+        # self.component.mqtt_client.publish(topic2, message2)
         self.stm.terminate()
 
     def activation_timeout(self):
         self._logger.debug('Scooter timed out. Deactivating scooter {}.'.format(self.scooter_id))
         self.stm.start_timer('t1' , 60 * 1000)
-        message = "deactivated"
-        topic = "scooters/{}/status".format(self.scooter_id)
+        message = "end_ride"
+        topic = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
     
     def data_reset(self):
         self._logger.debug('Scooter {} deactivated and added back to pool.'.format(self.scooter_id))
-        message = "available"
-        topic = "scooter/{}/status".format(self.scooter_id)
-        self.component.mqtt_client.publish(topic, message)
-        message2 = "activation_fail"
+        # message = "available"
+        # topic = "scooter/{}/status".format(self.scooter_id)
+        # self.component.mqtt_client.publish(topic, message)
+        message2 = "System could not activate scooter {}. Please try again.".format(self.scooter_id)
         topic2 = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic2, message2)
         self.stm.terminate()
@@ -163,8 +168,11 @@ class reserve_scooter:
         self._logger.debug('Scooter {} is reserved for user {}.'.format(self.scooter_id, self.user_id))
         self.stm.start_timer('t1' , 10 * 60 * 1000)
         self.stm.start_timer('t2' , 5 * 60 * 1000)
-        message = "reserved" # This would in practice include user data to set the "key" for the activation.
-        topic = "scooters/{}/status".format(self.scooter_id)
+        message = {
+            "command": "reserved",
+            "user_id": self.user_id,
+        }
+        topic = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
         message2 = "Scooter {} is reserved for you.".format(self.scooter_id)
         topic2 = "users/{}".format(self.user_id)
@@ -172,8 +180,8 @@ class reserve_scooter:
 
     def reservation_cancel(self):
         self.logger.debug('Reservation cancelled for scooter {}.'.format(self.scooter_id))
-        message = "available"
-        topic = "scooters/{}/status".format(self.scooter_id)
+        message = "cancel"
+        topic = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic, message)
         message2 = "Reservation cancelled."
         topic2 = "users/{}".format(self.user_id)
@@ -185,9 +193,9 @@ class reserve_scooter:
         message = "Scooter {} is now active.".format(self.scooter_id)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
-        message2 = "active"
-        topic2 = "scooters/{}/status".format(self.scooter_id)
-        self.component.mqtt_client.publish(topic2, message2)
+        # message2 = "active"
+        # topic2 = "scooters/{}/status".format(self.scooter_id)
+        # self.component.mqtt_client.publish(topic2, message2)
         active_stm = active_scooter.create_machine(reservation_time=(time.time()-self.start_time), user_id=self.user_id, scooter_id=self.scooter_id)
         self.component.stm_driver.add_machine(active_stm)
         self.stm.terminate()
@@ -205,8 +213,8 @@ class reserve_scooter:
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
         # Clean up of scooter parameters
-        message2 = "available"
-        topic2 = "scooters/{}/status".format(self.scooter_id)
+        message2 = "cancel"
+        topic2 = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic2, message2)
         self.stm.terminate()
     
@@ -234,7 +242,7 @@ class active_scooter:
               'target': 'active_scooter'}
         t1 = {
             'source': 'active_scooter',
-            'target': 'trip_complete',
+            'target': 'final',
             'trigger': 'trip_complete',
             'effect': 'deactivate_scooter'}
         t2 = {
@@ -245,13 +253,13 @@ class active_scooter:
         t3 = {
             'source': 'unactive',
             'trigger': 't1',
-            'target': 'reset_scooter',
+            'target': 'final',
             'effect': 'data_reset'
         }
         t4 = {
             'source': 'unactive',
             'trigger': 'qr_initiation',
-            'target': 'qr_start_scooter',
+            'target': 'final',
             'effect': 'qr_code_starter'
         }
         qr_stm = stmpy.Machine(name=scooter_id+"_active", transitions=[t0, t1, t2, t3, t4],
@@ -267,32 +275,27 @@ class active_scooter:
         message = "Trip complete. You have used the scooter for {} seconds. You have spent {}kr".format(trip_time, trip_time*0.5//60)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
-        message2 = "available"
-        topic2 = "scooters/{}/status".format(self.scooter_id)
+        message2 = "end_ride"
+        topic2 = "scooters/{}/commands".format(self.scooter_id)
         self.component.mqtt_client.publish(topic2, message2)
-
         self.stm.terminate()
 
     def grace_wait(self):
         trip_time = time.time() - self.start_time + self.reservation_time
         self._logger.debug('Scooter {} reports inactivity. User {} billed {}kr.'.format(self.scooter_id, self.user_id, trip_time*0.5//60))
-        # Prepare MQTT message to user about inactivity
         message = "Your scooter {} has been inactive for 5 minutes. You will be billed {}kr.".format(self.scooter_id, trip_time*0.5//60)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
-        # Set scooter to available, but not in available scooter list
-        message2 = "available-but-unpublished"
-        topic2 = "scooters/{}/status".format(self.scooter_id)
-        self.component.mqtt_client.publish(topic2, message2)
-        # Bill user
-        # Start timer 5 min
-        self.stm.start_timer('t1' , 5 * 60 * 1000)
+        trip_time = time.time() - self.start_time + self.reservation_time
+        self.component.mqtt_client.publish(topic3, message3)
+        self.stm.start_timer('t1' ,  60 * 1000)
 
     
     def data_reset(self):
         self._logger.debug('Scooter {} added back to pool.'.format(self.scooter_id))
-        # Set MQTT topic
-        # Add scooter to available list
+        # message = "available"
+        # topic = "scooters/{}/status".format(self.scooter_id)
+        # self.component.mqtt_client.publish(topic, message)
         self.stm.terminate()
     
 #-----------------------------
@@ -466,6 +469,7 @@ class Server_listener:
         self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         # subscribe to proper topic(s) of your choice
         self.mqtt_client.subscribe("scooters/+/status")
+        self.mqtt_client.subscribe("scooters/+/commands")
         self.available_scooters = []
 
 

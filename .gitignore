@@ -4,3 +4,5 @@ __pycache__
 server/backend/mqtt/data/
 server/backend/mqtt/log/
 server/commandsender.py
+server/mqtt/data/mosquitto.db
+server/mqtt/log/mosquitto.log
