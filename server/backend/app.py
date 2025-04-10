@@ -104,9 +104,9 @@ class qr_code_scanner:
     
     def data_reset(self):
         self._logger.debug('Scooter {} deactivated and added back to pool.'.format(self.scooter_id))
-        # message = "available"
-        # topic = "scooter/{}/status".format(self.scooter_id)
-        # self.component.mqtt_client.publish(topic, message)
+        message = "available"
+        topic = "scooter/{}/status".format(self.scooter_id)
+        self.component.mqtt_client.publish(topic, message)
         message2 = "System could not activate scooter {}. Please try again.".format(self.scooter_id)
         topic2 = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic2, message2)
@@ -293,9 +293,9 @@ class active_scooter:
     
     def data_reset(self):
         self._logger.debug('Scooter {} added back to pool.'.format(self.scooter_id))
-        # message = "available"
-        # topic = "scooters/{}/status".format(self.scooter_id)
-        # self.component.mqtt_client.publish(topic, message)
+        message = "available"
+        topic = "scooters/{}/status".format(self.scooter_id)
+        self.component.mqtt_client.publish(topic, message)
         self.stm.terminate()
     
 #-----------------------------
@@ -341,22 +341,96 @@ class Server_listener:
             try:
                 payload = json.loads(msg.payload.decode("utf-8"))
                 is_available = payload.get("available", False)
-
                 # If the scooter is available, publish it to a new topic
                 if is_available:
                     if scooter_id not in self.available_scooters:
                         self.available_scooters.append(scooter_id)
                 else:
                     if scooter_id in self.available_scooters:
-                        self.available_scooters.remove(scooter_id)
-                    
-                    
+                        self.available_scooters.remove(scooter_id)  
                 available_topic = "available_scooters"
                 available_message = json.dumps({"available_scooters": self.available_scooters})
                 self.mqtt_client.publish(available_topic, available_message)
                 self._logger.debug(f"Published available scooter: {available_message}")
+
+                if payload == 'active':
+                    try:
+                        print(type(self))
+                        # push resrvation handler along
+                        if self.stm_driver.get_machine(scooter_id+"_reservation_machine") is not None:
+                            self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
+                        elif self.stm_driver.get_machine(scooter_id+"_qr") is not None:
+                            self.stm_driver.send('activate_scooter', scooter_id+"_qr")
+                        else:
+                            self._logger.error('Relevant machine not found. Message ignored. {}'.format(msg.topic, err))
+                    except Exception as err:
+                        self._logger.error('Invalid arguments to command. {}'.format(err))
+                elif payload == 'idle':
+                # Scooter reports inactivity
+                    try:
+                        print(type(self))
+                        # push resrvation handler along
+                        # elif self.stm_driver.get_machine(scooter_id+"_reservation_machine") is not None:
+                        #     self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
+                        if self.stm_driver.get_machine(scooter_id+"_qr") is not None:
+                            self.stm_driver.send('deactivate', scooter_id+"_qr")
+                        elif self.stm_driver.get_machine(scooter_id+"_active") is not None:
+                            self.stm_driver.send('scooter_inactive', scooter_id+"_active")
+                        # elif self.stm_driver.get_machine(scooter_id+"_reservation_machine") is not None:
+                        #     self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
+                        else:
+                            message = "available"
+                            topic = "scooters/{}/status".format(self.scooter_id)
+                            self.component.mqtt_client.publish(topic, message)
+                            self._logger.error('Relevant machine not found. Message ignored. {}'.format(msg.topic, err))
+                    
+                    except Exception as err:
+                        self._logger.error('Invalid arguments to command. {}'.format(err))
+                elif payload == 'bill_user':
+                # Scooter reports inactivity
+                    try:
+                        print(type(self))
+                        # push resrvation handler along
+                        self.stm_driver.send('trip_complete', scooter_id+"_active")
+                    except Exception as err:
+                        self._logger.error('Invalid arguments to command. {}'.format(err))
             except Exception as err:
                 self._logger.error(f"Failed to process message: {err}")
+
+        # if msg.topic.startswith("scooters/") and msg.topic.endswith("/commands"):
+        #     # TODO handle scooter commands
+        #     scooter_id = msg.topic.split('/')[1]
+        #     try:
+        #         payload = json.loads(msg.payload.decode("utf-8"))
+        #         command = payload.get("command")
+        #         self._logger.debug('Command in message is {}'.format(command))
+        #         if command == 'scooter_active':
+        #             try:
+        #                 print(type(self))
+        #                 # push resrvation handler along
+        #                 self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
+        #             except Exception as err:
+        #                 self._logger.error('Invalid arguments to command. {}'.format(err))
+        #         elif command == 'scooter_active_qr':
+        #             try:
+        #                 print(type(self))
+        #                 scooter_id = payload.get('serialnumber')
+        #                 # push resrvation handler along
+        #                 self.stm_driver.send('activate_scooter', scooter_id+"_qr")
+        #             except Exception as err:
+        #                 self._logger.error('Invalid arguments to command. {}'.format(err))
+        #         elif command == 'bill_user':
+        #         # Scooter reports inactivity
+        #             try:
+        #                 print(type(self))
+        #                 scooter_id = payload.get('serialnumber')
+        #                 # push resrvation handler along
+        #                 self.stm_driver.send('scooter_inactive', scooter_id+"_active")
+        #             except Exception as err:
+        #                 self._logger.error('Invalid arguments to command. {}'.format(err))
+        #     except Exception as err:
+        #         self._logger.error(f"Failed to process message: {err}")
+            
             
 
         if msg.topic == MQTT_TOPIC_INPUT:
@@ -389,22 +463,6 @@ class Server_listener:
                     self.stm_driver.add_machine(qr_stm)
                 except Exception as err:
                     self._logger.error('Invalid arguments to command. {}'.format(err))
-            elif command == 'scooter_active':
-                try:
-                    print(type(self))
-                    scooter_id = payload.get('serialnumber')
-                    # push resrvation handler along
-                    self.stm_driver.send('activate_scooter', scooter_id+"_reservation_machine")
-                except Exception as err:
-                    self._logger.error('Invalid arguments to command. {}'.format(err))
-            elif command == 'scooter_active_qr':
-                try:
-                    print(type(self))
-                    scooter_id = payload.get('serialnumber')
-                    # push resrvation handler along
-                    self.stm_driver.send('activate_scooter', scooter_id+"_qr")
-                except Exception as err:
-                    self._logger.error('Invalid arguments to command. {}'.format(err))
             elif command == 'user_cancels_reservation':
                 try:
                     print(type(self))
@@ -422,15 +480,7 @@ class Server_listener:
                     self.stm_driver.send('trip_complete', scooter_id+"_active")
                 except Exception as err:
                     self._logger.error('Invalid arguments to command. {}'.format(err))
-            elif command == 'scooter_inactive':
-                # Scooter reports inactivity
-                try:
-                    print(type(self))
-                    scooter_id = payload.get('serialnumber')
-                    # push resrvation handler along
-                    self.stm_driver.send('scooter_inactive', scooter_id+"_active")
-                except Exception as err:
-                    self._logger.error('Invalid arguments to command. {}'.format(err))
+            
             else:
                 self._logger.error('Command {} not recognized. Ignoring message.'.format(command))
             
