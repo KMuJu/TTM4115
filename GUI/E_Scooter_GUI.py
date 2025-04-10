@@ -6,10 +6,10 @@ from appJar import gui
 import time
 
 # MQTT Configuration
-MQTT_BROKER = 'mqtt.item.ntnu.no'
+MQTT_BROKER = '10.97.172.32'
 MQTT_PORT = 1883
 MQTT_TOPIC_COMMANDS = 'commands'  # Topic for sending commands to the server
-MQTT_TOPIC_AVAILABLE_SCOOTERS = 'available_scooters/'  # Topic for receiving available scooters
+MQTT_TOPIC_AVAILABLE_SCOOTERS = 'available_scooters'  # Topic for receiving available scooters
 
 # Application States
 DEFAULT_VIEW = "Default View"
@@ -74,7 +74,7 @@ class EScooterAppComponent:
         
         # Scooter list section
         self.app.startLabelFrame("Available Scooters")
-        self.app.addListBox("scooters", [])
+        self.app.addListBox("scooters", ["1", "2", "3"])
         self.app.setListBoxChangeFunction("scooters", self.select_scooter)
         self.app.stopLabelFrame()
         
@@ -102,6 +102,7 @@ class EScooterAppComponent:
         self._logger.info("Publishing: {}".format(command))
         self.mqtt_client.publish(MQTT_TOPIC_COMMANDS, payload=payload, qos=2)
     
+
     def request_available_scooters(self):
         """Request a list of available scooters from the server"""
         self.app.setLabel("status", "Requesting available scooters...")
@@ -114,17 +115,19 @@ class EScooterAppComponent:
     def update_scooter_list(self, scooters):
         """Update the GUI with the list of available scooters"""
         self.available_scooters = scooters
-        scooter_display = [f"ID: {s['id']} - Battery: {s['battery']}% - Distance: {s['distance']}m"
-                          for s in scooters]
+        scooter_display = [f"ID: {s}" for s in scooters] #- Battery: {s['battery']}% - Distance: {s['distance']}m
+        print(scooter_display)
         self.app.updateListBox("scooters", scooter_display)
         self.app.setLabel("status", f"Found {len(scooters)} available scooters")
     
-    def select_scooter(self, selection):
+    def select_scooter(self, widget_name):
         """Handle selection of a scooter from the list"""
-        if selection is not None and len(selection) > 0:
+        selection = self.app.getListBox(widget_name)
+        if len(selection) > 0:
+            print("debug: {}".format(selection[0]))
             index = self.app.getListBox("scooters").index(selection[0])
             self.selected_scooter = self.available_scooters[index]
-            self.app.setLabel("status", f"Selected scooter {self.selected_scooter['id']}")
+            self.app.setLabel("status", f"Selected scooter {self.selected_scooter}")
             
             # Subscribe to battery and status topics for the selected scooter
             self.mqtt_client.subscribe(f"scooter/{self.selected_scooter['id']}/battery")
@@ -208,7 +211,7 @@ class EScooterAppComponent:
         self.app.setLabel("status", "Scanning QR code...")
         command = {
             "command": "scan_qr_code",
-            "scooter_id": self.reserved_scooter_id,
+            "scooter_id": self.reserved_scooter_id, # This is a bug. Should be selected Scooter
             "user_id": self.user_id
         }
         self.publish_command(command)
