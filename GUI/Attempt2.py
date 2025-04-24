@@ -4,6 +4,7 @@ import logging
 from threading import Thread
 import json
 from appJar import gui
+import ast
 
 # TODO: choose proper MQTT broker address
 MQTT_BROKER = 'localhost'
@@ -31,7 +32,7 @@ class ScooterApp:
             self._logger.debug('MQTT message received on topic {}: {}'.format(msg.topic, msg.payload.decode()))
             self.app.setLabel('server_messages', 'Server message: {}'.format(msg.payload.decode()))
         elif msg.topic == MQTT_TOPIC_AVAILABLE_SCOOTERS:
-            available_scooters = json.loads(msg.payload.decode())
+            available_scooters = ast.literal_eval(msg.payload.decode())
             print(available_scooters)
             self._logger.debug('Available scooters: {}'.format(available_scooters))
             self.available_scooters = available_scooters
@@ -58,7 +59,7 @@ class ScooterApp:
             scooter_id = msg.topic.split('/')[1]
             battery_level = int(msg.payload.decode())
             if scooter_id == self.selected_scooter:
-                self.app.setLabel('battery_level', 'Battery Level: {}'.format(battery_level))
+                self.app.setLabel('battery_level', 'Battery Level: {}'.format(str(battery_level)))
         else:
             self._logger.warning('Unknown MQTT message received on topic {}: {}'.format(msg.topic, msg.payload.decode()))
             pass
@@ -117,9 +118,9 @@ class ScooterApp:
             print(scooter_id)
             self.mqtt_client.unsubscribe(f'scooters/{self.selected_scooter}/status')
             self.mqtt_client.unsubscribe(f'scooters/{self.selected_scooter}/battery')
-            self.mqtt_client.subscribe(f'scooters/{str(scooter_id)}/status')
-            self.mqtt_client.subscribe(f'scooters/{str(scooter_id)}/battery')
             self.selected_scooter = str(scooter_id)
+            self.mqtt_client.subscribe(f'scooters/{self.selected_scooter}/status')
+            self.mqtt_client.subscribe(f'scooters/{self.selected_scooter}/battery')
             self.app.setLabel('scooter_id', 'Scooter ID: {}'.format(scooter_id))
 
 
@@ -165,7 +166,7 @@ class ScooterApp:
             if scooter_id not in self.available_scooters:
                 self.app.setLabel("client_messages", "Client Message: Scooter not available.")
                 return
-            command = "user_scan_qr_code"
+            command = "qr_code_activation"
             publish_command(self.user_id, scooter_id, command)
             self.app.setLabel("client_messages", "Client Message: QR-Code scanned.")
 
@@ -187,7 +188,7 @@ class ScooterApp:
                 "command": command
             })
             self._logger.info(payload)
-            self.mqtt_client.publish(MQTT_TOPIC_INPUT, payload=payload, qos=2)
+            self.mqtt_client.publish(MQTT_TOPIC_INPUT, payload=payload, qos=1)
 
         
 
@@ -208,9 +209,9 @@ class ScooterApp:
         self.app.addListBox("scooters", self.available_scooters)
         self.app.addButton("Get Scooter Data", lambda: update_scooter_data(self.app.getListBox("scooters")[0]))
         self.app.addButton("Reserve", lambda: reserve_scooter(self.app.getListBox("scooters")[0]))
-        self.app.addButton("Cancel Reservation", cancel_reservation())
+        self.app.addButton("Cancel Reservation", lambda: cancel_reservation())
         self.app.addButton("Scan QR-Code", lambda: scan_qr_code(self.app.getListBox("scooters")[0]))
-        self.app.addButton("End Ride", end_ride())
+        self.app.addButton("End Ride", lambda: end_ride())
         self.app.stopLabelFrame()
 
     
