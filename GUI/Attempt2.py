@@ -1,9 +1,9 @@
 # Component got from the course website, last unit. Needs to be modified.
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt # type: ignore
 import logging
 from threading import Thread
 import json
-from appJar import gui
+from appJar import gui # type: ignore
 import ast
 
 # TODO: choose proper MQTT broker address
