@@ -1,8 +1,8 @@
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt # type: ignore
 from threading import Thread
 import json
 
-from stmpy import Driver
+from stmpy import Driver # type: ignore
 
 from constants import COMMANDS
 

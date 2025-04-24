@@ -309,8 +309,6 @@ class Active_scooter:
         message = "Your scooter {} has been inactive for 5 minutes. You will be billed {}kr.".format(self.scooter_id, trip_time*0.5//60)
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
-        trip_time = time.time() - self.start_time + self.reservation_time
-        self.component.mqtt_client.publish(topic3, message3)
         self.stm.start_timer('t1' ,  60 * 1000)
 
     

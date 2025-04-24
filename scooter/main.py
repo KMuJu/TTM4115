@@ -1,4 +1,4 @@
-from stmpy import Machine, Driver
+from stmpy import Machine, Driver # type: ignore
 from constants import COMMANDS
 from scooter_stm import Scooter_stm, transitions, states
 from mqtt_client import MQTT_client
