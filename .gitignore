@@ -19,3 +19,4 @@ server_node_red/node_red_data/flows.json
 server_node_red/node_red_data/package.json
 server_node_red/node_red_data/settings.js
 server/backend/boiler.py
+server_node_red/
