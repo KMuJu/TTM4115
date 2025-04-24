@@ -6,3 +6,15 @@ server/backend/mqtt/log/
 server/commandsender.py
 server/mqtt/data/mosquitto.db
 server/mqtt/log/mosquitto.log
+server_node_red/mqtt/data/mosquitto.db
+server_node_red/mqtt/log/mosquitto.log
+server_node_red/node_red_data/.config.nodes.json
+server_node_red/node_red_data/.config.runtime.json
+server_node_red/node_red_data/.config.runtime.json.backup
+server_node_red/node_red_data/.config.users.json
+server_node_red/node_red_data/.config.users.json.backup
+server_node_red/node_red_data/.flows.json.backup
+server_node_red/node_red_data/flows_cred.json
+server_node_red/node_red_data/flows.json
+server_node_red/node_red_data/package.json
+server_node_red/node_red_data/settings.js
