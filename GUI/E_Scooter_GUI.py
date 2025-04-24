@@ -1,8 +1,8 @@
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt # type: ignore
 import logging
 from threading import Thread
 import json
-from appJar import gui
+from appJar import gui # type: ignore
 import time
 
 # MQTT Configuration
@@ -130,12 +130,12 @@ class EScooterAppComponent:
             self.app.setLabel("status", f"Selected scooter {self.selected_scooter}")
             
             # Subscribe to battery and status topics for the selected scooter
-            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter['id']}/battery")
-            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter['id']}/status")
+            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter}/battery")
+            self.mqtt_client.subscribe(f"scooter/{self.selected_scooter}/status")
     
     def update_scooter_battery(self, scooter_id, battery_level):
         """Update the battery level of a specific scooter"""
-        if self.selected_scooter and self.selected_scooter['id'] == scooter_id:
+        if self.selected_scooter and self.selected_scooter == scooter_id:
             self.selected_scooter['battery'] = battery_level
             self.app.setLabel("status", f"Scooter {scooter_id} battery: {battery_level}%")
     
