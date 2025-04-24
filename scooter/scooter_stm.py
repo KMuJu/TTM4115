@@ -1,10 +1,10 @@
 from threading import Thread
-from stmpy import Machine
+from stmpy import Machine # type: ignore
 from mqtt_client import MQTT_client
 # from lights import RedLightThread, sense
 from constants import BASE
 from joystick_thread import JoystickThread
-from sense_hat import SenseHat
+from sense_hat import SenseHat # type: ignore
 from time import sleep
 
 sense = SenseHat()
@@ -25,7 +25,10 @@ class Scooter_stm:
         self.driving = False
 
     def init(self):
-        self.client.publish(f"commands", f"serial:{self.serial_number}")
+        #self.client.publish(f"commands", f"serial:{self.serial_number}")
+        self.client.publish(f"scooters/{self.serial_number}/status", "available")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
+        self.client.subscribe(f"scooters/{self.serial_number}/commands")
 
     def set_client(self, client): self.client = client
     def set_stm(self, stm): self.stm = stm
@@ -33,46 +36,48 @@ class Scooter_stm:
     def set_userid(self, userid: int): self.userid = userid
 
     def idle_entry(self):
-        self.client.publish(f"scooter/{self.serial_number}/status", "idle")
-        self.client.subscribe(f"scooter/{self.serial_number}/status")
+        self.client.publish(f"scooters/{self.serial_number}/status", "available")
+        self.client.subscribe(f"scooters/{self.serial_number}/status")
         self.light_send("off")
 
     def reserved_entry(self):
         self.light_send("red_blink")
         self.proximity_sensor_listen(self.userid)
+        self.client.publish(f"scooters/{self.serial_number}/status", "reserved")
+
 
     def active_but_static_entry(self):
         sense.show_letter("S")
         self.driving_listen()
 
     def battery_low(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"scooters/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
 
     def user_cancel(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"scooters/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
         self.userid = -1
 
     def cancel_reservation(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"scooters/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
         self.userid = -1
 
     def static_timeout(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "bill_user")
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"scooters/{self.serial_number}/status", "bill_user")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
 
     def qr_qode_activated(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
+        self.client.publish(f"scooters/{self.serial_number}/status", "active")
         self.light_send("driving_lights")
 
     def reserved_timeout(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "reserved_timeout")
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/battery", self.battery_level)
+        self.client.publish(f"scooters/{self.serial_number}/status", "reserved_timeout")
+        self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
 
     def proximity(self):
-        self.client.publish(f"{BASE}/scooter/{self.serial_number}/status", "active")
+        self.client.publish(f"scooters/{self.serial_number}/status", "active")
         self.light_send("driving_lights")
 
     def light_send(self, type_str):

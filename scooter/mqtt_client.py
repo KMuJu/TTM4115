@@ -22,7 +22,7 @@ class MQTT_client:
         print(f"on_connect(): {mqtt.connack_string(rc)}")
 
     def get_commands(self):
-        return f"scooter/{self.serial_number}/commands"
+        return f"scooters/{self.serial_number}/commands"
 
     def on_message(self, client, userdata, msg):
         """
@@ -46,16 +46,20 @@ class MQTT_client:
         print(f"Message: {msg.payload.decode()}")
 
         try:
-            command = json.loads(msg.payload.decode())
-            if command["command"]  == "reserve":
+            command = json.loads(msg.payload.decode("utf-8"))
+            if command["command"]  == "reserved":
                 stm = self.stm_driver._stms_by_id[machine]._obj # Get stm from private variable
-                stm.set_userid(int(command["user_id"]))
-                self.stm_driver.send(command["command"], machine)
+                stm.set_userid(command["user_id"])
+                self.stm_driver.send("reserve_scooter", machine)
+            elif command["command"] == "scan_qr_code":
+                stm = self.stm_driver._stms_by_id[machine]._obj
+                stm.set_userid(command["user_id"])
+                self.stm_driver.send("scan_qr_code", machine)
             else:
                 print("Command not recognized")
         except:
             print("Data sent to commands is not json")
-            self.stm_driver.send(machine, msg.payload.decode())
+            self.stm_driver.send(msg.payload.decode(), machine)
 
     def start(self, broker, port):
         print("Connecting to {}:{}".format(broker, port))
@@ -72,7 +76,7 @@ class MQTT_client:
 
 
     def publish(self, topic, message):
-        self.client.publish(topic, message)
+        self.client.publish(topic, message, qos=1)
 
     def subscribe(self, topic):
         self.client.subscribe(topic)

@@ -5,8 +5,8 @@ from mqtt_client import MQTT_client
 from lights import sense
 # import paho.mqtt.client as mqtt
 
-broker, port = "mqtt20.iik.ntnu.no", 1883
-scooter_serial = 32467129
+broker, port = "192.168.210.181", 1883
+scooter_serial = 123456
 
 """
 skriv status til scooter/serial/status
@@ -34,6 +34,10 @@ def main():
 
     driver.start()
     client.start(broker, port)
+
+
+    client.client.publish("scooters/"+str(scooter_serial)+"/status", "available")
+    client.client.publish("scooters/"+str(scooter_serial)+"/battery", "99")
 
     while True:
         s = input("Send to mqtt:")
