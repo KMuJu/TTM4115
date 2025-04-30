@@ -295,7 +295,7 @@ class Active_scooter:
     def deactivate_scooter(self):
         self._logger.debug('Trip complete for {} for user {}. Resetting Scooter'.format(self.scooter_id, self.user_id))
         trip_time = time.time() - self.start_time + self.reservation_time
-        message = "Trip complete. You have used the scooter for {} seconds. You have spent {}kr".format(trip_time, trip_time*0.5//60)
+        message = "Trip complete. You have used the scooter for {} seconds. You have spent {}kr".format(int(trip_time), int(trip_time*0.5//60))
         topic = "users/{}".format(self.user_id)
         self.component.mqtt_client.publish(topic, message)
         message2 = "end_ride"

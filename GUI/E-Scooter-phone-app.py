@@ -7,7 +7,7 @@ from appJar import gui # type: ignore
 import ast
 
 # TODO: choose proper MQTT broker address
-MQTT_BROKER = 'localhost'
+MQTT_BROKER = '192.168.210.166'
 MQTT_PORT = 1883
 
 USER_ID = "testuser1123"
@@ -50,6 +50,8 @@ class ScooterApp:
             elif status == 'available' and self.reserved_scooter_id == scooter_id:
                 self._logger.info('Scooter {} is available'.format(scooter_id))
                 self.has_active_ride = False
+                self.has_reservation = False
+                self.reserved_scooter_id = None
                 self.app.setLabel('status', 'Scooter Status: {}'.format(status))
             elif scooter_id == self.selected_scooter:
                 self.app.setLabel('status', 'Scooter Status: {}'.format(status))
@@ -169,6 +171,9 @@ class ScooterApp:
             command = "qr_code_activation"
             publish_command(self.user_id, scooter_id, command)
             self.app.setLabel("client_messages", "Client Message: QR-Code scanned.")
+            self.has_active_ride = True
+            self.reserved_scooter_id = scooter_id
+            self.app.setLabel("scooter_id", "Scooter ID: {}".format(scooter_id))
 
         def end_ride():
             if self.reserved_scooter_id is None:
@@ -180,6 +185,9 @@ class ScooterApp:
             command = "park_scooter"
             publish_command(self.user_id, self.reserved_scooter_id, command)
             self.app.setLabel("client_messages", "Client Message: Ride ended.")
+            self.reserved_scooter_id = None
+            self.has_reservation = False
+            self.has_active_ride = False
 
         def publish_command(user_id, scooter_id, command):
             payload = json.dumps({

@@ -188,7 +188,7 @@ end_ride = {
         }
 
 cancel_reservation = {
-        "trigger": "cancel_reservation",
+        "trigger": "cancel",
         "source" : "reserved",
         "target" : "idle",
         "effect" : "cancel_reservation"

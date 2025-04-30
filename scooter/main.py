@@ -5,7 +5,7 @@ from mqtt_client import MQTT_client
 from lights import sense
 # import paho.mqtt.client as mqtt
 
-broker, port = "192.168.210.181", 1883
+broker, port = "192.168.210.166", 1883
 scooter_serial = 123456
 
 """
