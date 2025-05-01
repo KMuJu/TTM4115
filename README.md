@@ -1,33 +1,18 @@
+# Structure
 
-# Virtual environment
-
-## Activate
-
-### Linux & MacOs
-```
-source ./.venv/bin/activate
-```
-### Windows
-```
-.\.venv\Scripts\activate
-```
-
-
-# Struktur
-
-En mappe for de tre delene av prosjektet:
+One folder for each of the devices in the deployment diagram:
 1. Scooter
 2. Server
 3. GUI
 
 
-
 # Installation and running
+Execute each instruction in the correct folder
 
 ## GUI
 The GUI is run from a computer with python 3.9 or 3.10 with necessary libraries. Before running the GUI, it is necessary to set the IP-address of the server. If running the server locally on same computer as GUI, localhost is sufficient. Start the GUI by running:
 ```
-python ./Attempt2.py
+python ./E-Scooter-phone-app.py
 ```
 
 ## Server
@@ -37,7 +22,10 @@ docker compose build
 docker compose up
 ```
 
-# Scooter
+## Scooter
+Requires: sense-hat packet
+install with `sudo apt install sense-hat`
+
 The scooter runs locally on the sense-hat raspberry pi. To run the scooter-code, open a terminal on the raspberry pi (can be done via SSH), navigate to "~/TTM4115/scooter" and run:
 ```
 python main.py

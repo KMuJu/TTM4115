@@ -129,10 +129,10 @@ class Qr_code_scanner:
 # -----------------------------
 
 class Reserve_scooter:
+    """
+    The component handles a reservation and waits for scooter activation.
+    """
     def __init__(self, name, start_time, user_id, scooter_id, component):
-        """
-        The component handles a reservation and waits for scooter activation.
-        """
         self._logger = logging.getLogger(__name__)
         self.start_time = start_time
         self.name = name
