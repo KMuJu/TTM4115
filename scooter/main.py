@@ -1,9 +1,6 @@
 from stmpy import Machine, Driver # type: ignore
-from constants import COMMANDS
-from scooter_stm import Scooter_stm, transitions, states
+from scooter_stm import Scooter_stm, transitions, states, sense
 from mqtt_client import MQTT_client
-from lights import sense
-# import paho.mqtt.client as mqtt
 
 broker, port = "192.168.210.166", 1883
 scooter_serial = 123456
@@ -38,16 +35,6 @@ def main():
 
     client.client.publish("scooters/"+str(scooter_serial)+"/status", "available")
     client.client.publish("scooters/"+str(scooter_serial)+"/battery", "99")
-
-    while True:
-        s = input("Send to mqtt:")
-        sending = '{"command":"reserve_scooter", "scooter_id":32467129, "user_id":100}' if s == "r"\
-        else '{"command":"scan_qr_code", "scooter_id":32467129, "user_id":100}' if s == "q"\
-        else '{"command":"end_ride", "scooter_id":32467129, "user_id":100}' if s == "u"\
-        else '{"command":"cancel_reservation", "scooter_id":32467129, "user_id":100}' if s == "c"\
-        else s
-        print("Sending: ", sending)
-        client.client.publish(COMMANDS, sending)
 
 if __name__ == "__main__":
     try:

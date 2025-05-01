@@ -1,9 +1,6 @@
 from threading import Thread
 from stmpy import Machine # type: ignore
 from mqtt_client import MQTT_client
-# from lights import RedLightThread, sense
-from constants import BASE
-from joystick_thread import JoystickThread
 from sense_hat import SenseHat # type: ignore
 from time import sleep
 
@@ -24,16 +21,20 @@ class Scooter_stm:
         self.isProximity = False
         self.driving = False
 
+    def set_client(self, client): self.client = client
+    def set_stm(self, stm): self.stm = stm
+    def update_battery_level(self, battery_level: int): self.battery_level = battery_level
+    def set_userid(self, userid: int): self.userid = userid
+
+    """
+    Below are the state transitions and enter/exits implementations
+    """
+
     def init(self):
         #self.client.publish(f"commands", f"serial:{self.serial_number}")
         self.client.publish(f"scooters/{self.serial_number}/status", "available")
         self.client.publish(f"scooters/{self.serial_number}/battery", self.battery_level)
         self.client.subscribe(f"scooters/{self.serial_number}/commands")
-
-    def set_client(self, client): self.client = client
-    def set_stm(self, stm): self.stm = stm
-    def update_battery_level(self, battery_level: int): self.battery_level = battery_level
-    def set_userid(self, userid: int): self.userid = userid
 
     def idle_entry(self):
         self.client.publish(f"scooters/{self.serial_number}/status", "available")
